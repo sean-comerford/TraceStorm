@@ -1,0 +1,6 @@
+DEFAULT_BASE_URL = "http://localhost:8000/v1"
+DEFAULT_API_KEY = "none"
+
+DEFAULT_SUBPROCESSES = 1
+
+DEFAULT_MESSAGES = "Tell me a story"
