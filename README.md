@@ -11,6 +11,8 @@ Usage:
 Start an OpenAI-compatible server:
 
 ```bash
+# If you haven't already, install vllm
+# pip install vllm
 vllm serve Qwen/Qwen2.5-1.5B-Instruct
 ```
 
