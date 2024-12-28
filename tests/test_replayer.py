@@ -4,7 +4,7 @@ import time
 import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from trace_storm.trace_player import RequestError, TracePlayer
+from tracestorm.trace_player import RequestError, TracePlayer
 
 
 class TestTracePlayer(unittest.TestCase):

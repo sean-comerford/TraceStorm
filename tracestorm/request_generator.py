@@ -1,6 +1,6 @@
 from typing import Any, Dict, List
 
-from trace_storm.constants import DEFAULT_MESSAGES
+from tracestorm.constants import DEFAULT_MESSAGES
 
 
 def generate_request(

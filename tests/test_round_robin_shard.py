@@ -1,7 +1,7 @@
 import unittest
 from typing import Any, Dict, List, Tuple
 
-from trace_storm.utils import round_robin_shard
+from tracestorm.utils import round_robin_shard
 
 
 class TestRoundRobinShard(unittest.TestCase):

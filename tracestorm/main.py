@@ -2,12 +2,12 @@ import argparse
 import multiprocessing
 import os
 
-from trace_storm.logger import init_logger
-from trace_storm.request_generator import generate_request
-from trace_storm.result_analyzer import ResultAnalyzer
-from trace_storm.trace_generator import generate_trace
-from trace_storm.trace_player import play
-from trace_storm.utils import round_robin_shard
+from tracestorm.logger import init_logger
+from tracestorm.request_generator import generate_request
+from tracestorm.result_analyzer import ResultAnalyzer
+from tracestorm.trace_generator import generate_trace
+from tracestorm.trace_player import play
+from tracestorm.utils import round_robin_shard
 
 logger = init_logger(__name__)
 

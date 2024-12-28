@@ -5,7 +5,7 @@ from typing import Any, Dict, List
 
 from openai import AsyncOpenAI
 
-from trace_storm.logger import init_logger
+from tracestorm.logger import init_logger
 
 logger = init_logger(__name__)
 

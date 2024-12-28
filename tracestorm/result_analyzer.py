@@ -6,8 +6,8 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 
-from trace_storm.logger import init_logger
-from trace_storm.utils import get_unique_file_path
+from tracestorm.logger import init_logger
+from tracestorm.utils import get_unique_file_path
 
 logger = init_logger(__name__)
 

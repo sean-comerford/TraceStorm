@@ -3,7 +3,7 @@ import unittest
 from math import floor
 from typing import List
 
-from trace_storm.trace_generator import generate_trace
+from tracestorm.trace_generator import generate_trace
 
 
 class TestGenerateTrace(unittest.TestCase):
