@@ -5,7 +5,7 @@ import click
 
 from tracestorm.core import run_load_test
 from tracestorm.logger import init_logger
-from tracestorm.trace_base import (
+from tracestorm.trace_generator import (
     AzureTraceGenerator,
     SyntheticTraceGenerator,
     TraceGenerator,

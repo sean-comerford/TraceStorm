@@ -4,7 +4,7 @@ from typing import List, Tuple
 from tracestorm.logger import init_logger
 from tracestorm.request_generator import generate_request
 from tracestorm.result_analyzer import ResultAnalyzer
-from tracestorm.trace_base import TraceGenerator
+from tracestorm.trace_generator import TraceGenerator
 from tracestorm.trace_player import play
 from tracestorm.utils import round_robin_shard
 

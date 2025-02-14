@@ -4,7 +4,10 @@ from unittest.mock import MagicMock, patch
 from click.testing import CliRunner
 
 from tracestorm.cli import create_trace_generator, main
-from tracestorm.trace_base import AzureTraceGenerator, SyntheticTraceGenerator
+from tracestorm.trace_generator import (
+    AzureTraceGenerator,
+    SyntheticTraceGenerator,
+)
 
 
 class TestCLI(unittest.TestCase):
