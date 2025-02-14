@@ -6,7 +6,7 @@ import click
 from tracestorm.logger import init_logger
 from tracestorm.request_generator import generate_request
 from tracestorm.result_analyzer import ResultAnalyzer
-from tracestorm.trace_generator import generate_trace
+from tracestorm.trace_base import SyntheticTraceGenerator
 from tracestorm.trace_player import play
 from tracestorm.utils import round_robin_shard
 
@@ -36,7 +36,8 @@ logger = init_logger(__name__)
     help="OpenAI API Key",
 )
 def main(model, rps, pattern, duration, subprocesses, base_url, api_key):
-    raw_trace = generate_trace(rps, pattern, duration)
+    trace_generator = SyntheticTraceGenerator(rps, pattern, duration)
+    raw_trace = trace_generator.generate()
     total_requests = len(raw_trace)
     logger.debug(f"Raw trace: {raw_trace}")
 
