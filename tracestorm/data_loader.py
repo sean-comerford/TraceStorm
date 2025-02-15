@@ -19,7 +19,7 @@ class Dataset:
     """
     file_name: str
     prompts: List[str]
-    select_ratio: float
+    select_ratio: int
     length: int
     
 
@@ -33,11 +33,13 @@ def normalize_prompts(row) -> List[str]:
             if isinstance(item, str):
                 prompts.append(item)
             elif isinstance(item, dict) and item.get("role") == "user":
-                prompts.append(item.get("content", ""))
+                prompt = next((item.get(k, "") for k in ["message", "content", "value"] if item.get(k, "")), "")
+                prompts.append(prompt)
     elif isinstance(row, str): # if the row is already a prompt
         prompts.append(row)
     elif isinstance(row, dict) and row.get("role") == "user": # if the row is a template, retrieve user prompt
-        prompts.append(row.get("content", ""))
+        prompt = next((item.get(k, "") for k in ["message", "content", "value"] if item.get(k, "")), "")
+        prompts.append(prompt)
     else:
         logger.error(f"Unrecognized row format: {row}")
     return [p for p in prompts if p]  # Remove empty prompts    
@@ -70,7 +72,7 @@ def load_datasets(
             return [], None
         
         # Strategy to sort the provided datasets
-        sort_strategy = datasets_config.get("sort", "random")
+        sort_strategy = datasets_config.pop("sort", "random")
 
         # List to store each Dataset
         datasets = []
@@ -80,21 +82,19 @@ def load_datasets(
             prompt_field = config.get("prompt_field")
             
             try:
-                ratio = float(config.get("select_ratio", 1.0))
+                ratio = int(config.get("select_ratio", 1))
             except ValueError:
                 logger.error(f"Invalid 'select_ratio' for dataset '{name}', using default 1")
-                ratio = 1.0
+                ratio = 1
 
             if not file_name or not prompt_field:
                 logger.error(
                     f"Missing required 'file_name' or 'prompt_field' for dataset '{name}'"
                 )
                 continue
-            if os.path.isfile(file_name):
-                file_path = os.path.abspath(file_name)
-            else:
-                file_path = os.path.join(DEFAULT_DATASET_FOLDER, file_name)
-               
+            
+            file_path = os.path.abspath(file_name) if os.path.exists(file_name) else os.path.join(DEFAULT_DATASET_FOLDER, file_name)
+            
             # Load dataset from local files
             if os.path.exists(file_path):
                 prompts = []
@@ -102,7 +102,7 @@ def load_datasets(
                 if file_name.endswith(".csv"):
                     data = pd.read_csv(file_path)
 
-                    if prompt_field not in set(data.column_names):
+                    if prompt_field not in set(data.columns):
                         logger.error(f"Field '{prompt_field}' not found in '{file_path}'.")
                         continue
                     prompts = data[prompt_field].dropna().astype(str).tolist()
@@ -119,23 +119,29 @@ def load_datasets(
                 else:
                     logger.error(f"Unsupported file format for '{file_name}'")
                     continue    
-            else: # Load HF datasets
-                # data = load_dataset("lmsys/lmsys-chat-1m")
-                data = load_dataset(file_name)["train"]
-                if prompt_field not in data.column_names:
-                    logger.error(f"'{prompt_field}' not found in dataset '{file_name}'")
-                    continue
-                
-                prompts = []
-                for row in data[prompt_field]:
-                    prompts.extend(normalize_prompts(row))
-                    
+            else:
+                try:
+                    if file_name.endswith(".csv"): # CSV format
+                        data = pd.read_csv(file_name)
+                        
+                        if prompt_field not in set(data.columns):
+                            logger.error(f"Field '{prompt_field}' not found in '{file_name}'.")
+                            continue
+                        prompts = data[prompt_field].dropna().astype(str).tolist() 
+                    else: # use datasets to load
+                        data = load_dataset(file_name)["train"]
+                        prompts = []
+                        for row in data[prompt_field]:
+                            prompts.extend(normalize_prompts(row))
+                except Exception as e:
+                    logger.error(f"Failed to load '{file_name}': {e}")
+        
             # Add the dataset information (file name, a list of prompts, select ratio among all datasets, total number of prompts)
             dataset_obj = Dataset(file_name, prompts, ratio, len(prompts))
             datasets.append(dataset_obj)
             
             logger.info(
-                f"loaded {file_path} with {len(prompts)} prompts, selection ratio = {ratio}"
+                f"loaded {file_name} with {len(prompts)} prompts, selection ratio = {ratio}"
             )
             
         return datasets, sort_strategy

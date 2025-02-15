@@ -18,7 +18,7 @@ logger = init_logger(__name__)
 SYNTHETIC_PATTERNS = {"uniform", "poisson", "random"}
 AZURE_PATTERNS = {"azure_code", "azure_conv"}
 VALID_PATTERNS = SYNTHETIC_PATTERNS | AZURE_PATTERNS
-# TODO: VALID_DATASETS = 
+
 
 def create_trace_generator(
     pattern: str, rps: int, duration: int, seed: int
@@ -107,7 +107,13 @@ def create_trace_generator(
     default=lambda: os.environ.get("OPENAI_API_KEY", "none"),
     help="OpenAI API Key",
 )
-def main(model, rps, pattern, duration, seed, subprocesses, base_url, api_key):
+@click.option(
+    "--datasets-config-file", 
+    default=None, 
+    help="Config file for datasets"
+)
+
+def main(model, rps, pattern, duration, seed, subprocesses, base_url, api_key, datasets_config_file):
     """Run trace-based load testing for OpenAI API endpoints."""
     try:
         trace_generator, warning_msg = create_trace_generator(
@@ -116,12 +122,21 @@ def main(model, rps, pattern, duration, seed, subprocesses, base_url, api_key):
         if warning_msg:
             logger.warning(warning_msg)
 
+        if datasets_config_file is None:
+            datasets = []
+            sort = None
+        else: 
+            datasets, sort = load_datasets(datasets_config_file)
+            
         _, result_analyzer = run_load_test(
             trace_generator=trace_generator,
             model=model,
             subprocesses=subprocesses,
             base_url=base_url,
             api_key=api_key,
+            datasets=datasets,
+            sort=sort,
+            seed=seed
         )
 
         print(result_analyzer)
