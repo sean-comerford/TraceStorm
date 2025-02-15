@@ -3,9 +3,9 @@ import tempfile
 from abc import ABC, abstractmethod
 from typing import List, Optional
 
+import numpy as np
 import pandas as pd
 import requests
-import numpy as np
 
 from tracestorm.constants import AZURE_DATASET_PATHS, AZURE_REPO_URL
 from tracestorm.logger import init_logger
@@ -33,7 +33,9 @@ class TraceGenerator(ABC):
 class SyntheticTraceGenerator(TraceGenerator):
     """Generate synthetic traces based on patterns."""
 
-    def __init__(self, rps: int, pattern: str, duration: int, seed: Optional[int] = None):
+    def __init__(
+        self, rps: int, pattern: str, duration: int, seed: Optional[int] = None
+    ):
         """
         Initialize synthetic trace generator.
 

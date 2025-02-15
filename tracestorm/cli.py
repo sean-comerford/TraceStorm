@@ -4,13 +4,13 @@ from typing import Tuple
 import click
 
 from tracestorm.core import run_load_test
+from tracestorm.data_loader import load_datasets
 from tracestorm.logger import init_logger
 from tracestorm.trace_generator import (
     AzureTraceGenerator,
     SyntheticTraceGenerator,
     TraceGenerator,
 )
-from tracestorm.data_loader import load_datasets
 
 logger = init_logger(__name__)
 
@@ -52,7 +52,9 @@ def create_trace_generator(
             raise ValueError(
                 "Duration must be non-negative for synthetic patterns"
             )
-        return SyntheticTraceGenerator(rps, pattern, duration, seed), warning_msg
+        return SyntheticTraceGenerator(
+            rps, pattern, duration, seed
+        ), warning_msg
 
     # Azure patterns
     if rps != 1:
@@ -108,12 +110,19 @@ def create_trace_generator(
     help="OpenAI API Key",
 )
 @click.option(
-    "--datasets-config-file", 
-    default=None, 
-    help="Config file for datasets"
+    "--datasets-config-file", default=None, help="Config file for datasets"
 )
-
-def main(model, rps, pattern, duration, seed, subprocesses, base_url, api_key, datasets_config_file):
+def main(
+    model,
+    rps,
+    pattern,
+    duration,
+    seed,
+    subprocesses,
+    base_url,
+    api_key,
+    datasets_config_file,
+):
     """Run trace-based load testing for OpenAI API endpoints."""
     try:
         trace_generator, warning_msg = create_trace_generator(
@@ -125,9 +134,9 @@ def main(model, rps, pattern, duration, seed, subprocesses, base_url, api_key, d
         if datasets_config_file is None:
             datasets = []
             sort = None
-        else: 
+        else:
             datasets, sort = load_datasets(datasets_config_file)
-            
+
         _, result_analyzer = run_load_test(
             trace_generator=trace_generator,
             model=model,
@@ -136,7 +145,7 @@ def main(model, rps, pattern, duration, seed, subprocesses, base_url, api_key, d
             api_key=api_key,
             datasets=datasets,
             sort=sort,
-            seed=seed
+            seed=seed,
         )
 
         print(result_analyzer)

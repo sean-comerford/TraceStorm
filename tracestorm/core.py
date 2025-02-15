@@ -1,5 +1,5 @@
 import multiprocessing
-from typing import List, Tuple, Optional
+from typing import List, Optional, Tuple
 
 from tracestorm.logger import init_logger
 from tracestorm.request_generator import generate_request
@@ -19,7 +19,7 @@ def run_load_test(
     api_key: str,
     datasets: List,
     sort: Optional[str] = None,
-    seed: Optional[int] = None
+    seed: Optional[int] = None,
 ) -> Tuple[List[Tuple], ResultAnalyzer]:
     """
     Run load test with given configuration.
@@ -44,7 +44,13 @@ def run_load_test(
         logger.warning("No requests to process. Trace is empty.")
         return [], ResultAnalyzer()
 
-    requests = generate_request(model_name=model, nums=total_requests, datasets=datasets, sort=sort, seed=seed)
+    requests = generate_request(
+        model_name=model,
+        nums=total_requests,
+        datasets=datasets,
+        sort=sort,
+        seed=seed,
+    )
     ipc_queue = multiprocessing.Queue()
     processes = []
 
