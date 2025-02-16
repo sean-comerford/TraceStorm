@@ -1,5 +1,5 @@
 import os
-from typing import Tuple
+from typing import Tuple, Optional
 
 import click
 
@@ -21,7 +21,7 @@ VALID_PATTERNS = SYNTHETIC_PATTERNS | AZURE_PATTERNS
 
 
 def create_trace_generator(
-    pattern: str, rps: int, duration: int, seed: int
+    pattern: str, rps: int, duration: int, seed: Optional[int] = None
 ) -> Tuple[TraceGenerator, str]:
     """
     Create appropriate trace generator based on pattern and validate parameters.

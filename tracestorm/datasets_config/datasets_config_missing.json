@@ -5,6 +5,6 @@
     },
     "dataset_2": {
         "file_name": "lmsys/chatbot_arena_conversations",
-        "prompt_field": "user_prompt"
+        "prompt_field": "conversation_a"
     }
 }

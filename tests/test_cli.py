@@ -81,7 +81,7 @@ class TestCLI(unittest.TestCase):
         )
 
         self.assertNotEqual(result.exit_code, 0)
-        self.assertIn("Invalid pattern", result.output)
+        self.assertIn("Invalid value for '--pattern'", result.output)
 
 
 if __name__ == "__main__":

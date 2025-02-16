@@ -28,7 +28,7 @@ class TestDataLoader(unittest.TestCase):
         2. loading csv format with pandas
         """
         datasets, sort = load_datasets(
-            "../tracestorm/datasets_config/datasets_config_hf.json"
+            "tracestorm/datasets_config/datasets_config_hf.json"
         )
         assert isinstance(datasets, list)
         assert isinstance(datasets[0], Dataset) and isinstance(
@@ -42,7 +42,7 @@ class TestDataLoader(unittest.TestCase):
     def test_missing_fields(self):
         """Test loading with missing sort strategy and selection ratio in the config file"""
         datasets, sort = load_datasets(
-            "../tracestorm/datasets_config/datasets_config_missing.json"
+            "tracestorm/datasets_config/datasets_config_missing.json"
         )
         assert isinstance(datasets, list) and len(datasets) == 2
         assert sort == "random"
