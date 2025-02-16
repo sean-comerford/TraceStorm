@@ -4,7 +4,7 @@
         "prompt_field": "prompt"
     },
     "dataset_2": {
-        "file_name": "../datasets/GPT4_coding_sample.csv",
+        "file_name": "lmsys/chatbot_arena_conversations",
         "prompt_field": "user_prompt"
     }
 }
