@@ -12,4 +12,4 @@ DEFAULT_SUBPROCESSES = 1
 
 DEFAULT_MESSAGES = "Tell me a story"
 
-DEFAULT_DATASET_FOLDER = "../datasets/"
+DEFAULT_DATASET_FOLDER = "~/.cache/tracestorm/"
