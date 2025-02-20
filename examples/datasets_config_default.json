@@ -3,7 +3,8 @@
     "dataset_1": {
         "file_name": "",
         "prompt_field": "",
-        "select_ratio": 1
+        "select_ratio": 1,
+        "split": "train"
     },
     "dataset_2": {
         "file_name": "",
