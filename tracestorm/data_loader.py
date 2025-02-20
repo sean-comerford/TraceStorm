@@ -1,11 +1,12 @@
 import json
 import os
-from dataclasses import dataclass
-from typing import List, Optional, Tuple
-
+import re
 import pandas as pd
 
+from dataclasses import dataclass
+from typing import List, Optional, Tuple
 from datasets import load_dataset
+
 from tracestorm.constants import DEFAULT_DATASET_FOLDER
 from tracestorm.logger import init_logger
 
@@ -24,7 +25,27 @@ class Dataset:
     select_ratio: int
     length: int
 
+def is_file_type(file_name, extensions):
+    return any(re.search(rf"\.{ext}$", file_name, re.IGNORECASE) for ext in extensions)
 
+def resolve_file_path(file_name: str) -> str:
+    """
+    Resolve the file path:
+    - If the file exists locally (relative or absolute path), return its absolute path.
+    - If the file exists in DEFAULT_DATASET_FOLDER, return that path.
+    - If the file does not exist in either location, return file_name, assuming it is to be loaded remotely from hugging face.
+    """
+    # os.makedirs(DEFAULT_DATASET_FOLDER, exist_ok=True)
+    if os.path.exists(file_name):
+        return os.path.abspath(file_name)
+    
+    # check if file exists in DEFAULT_DATASET_FOLDER
+    file_path = os.path.join(DEFAULT_DATASET_FOLDER, file_name)
+    if os.path.exists(file_path):
+        return file_path
+    
+    return file_name
+    
 def normalize_prompts(row) -> List[str]:
     """
     Convert one row to a list of prompts based on the format.
@@ -106,6 +127,7 @@ def load_datasets(
     for name, config in datasets_config.items():
         file_name = config.get("file_name")
         prompt_field = config.get("prompt_field")
+        split = config.get("split", "train")
 
         try:
             ratio = int(config.get("select_ratio", 1))
@@ -121,63 +143,47 @@ def load_datasets(
             )
             continue
         
-        os.makedirs(DEFAULT_DATASET_FOLDER, exist_ok=True)
-        
-        file_path = (
-            os.path.abspath(file_name)
-            if os.path.exists(file_name)
-            else os.path.join(DEFAULT_DATASET_FOLDER, file_name)
-        )
 
-        # Load dataset from local files
-        if os.path.exists(file_path):
-            prompts = []
-            # CSV files
-            if file_name.endswith(".csv"):
-                data = pd.read_csv(file_path)
-
-                if prompt_field not in set(data.columns):
-                    logger.error(
-                        f"Field '{prompt_field}' not found in '{file_path}'."
-                    )
+        prompts = []
+        file_path = resolve_file_path(file_name)
+        check_field = False
+        try:
+            # If the file does not exist locally and is not of csv or json format,
+            # try to load it from hugging face using datasets.load_dataset() first
+            if not os.path.exists(file_path) and not is_file_type(file_name, ["csv", "json", "jsonl"]):
+                data = load_dataset(file_name)[split]
+                
+                if prompt_field not in data.column_names:
+                    logger.error(f"Field '{prompt_field}' not found in '{file_name}'.")
                     continue
-                prompts = data[prompt_field].dropna().astype(str).tolist()
-            # JSON files
-            elif file_name.endswith(".json"):
-                with open(file_path, "r") as f:
-                    data = json.load(f)
-
-                if isinstance(data, dict):
-                    prompts = data.get(prompt_field, [])
-                    if not isinstance(prompts, list):
-                        logger.error(
-                            f"Field '{prompt_field}' in '{file_path}' is not a list."
-                        )
-                        continue
+                
+                check_field = True
+            
+            elif is_file_type(file_name, ["csv"]): # CSV files, could be either local or remote file
+                data = pd.read_csv(file_path) 
+            
+            elif is_file_type(file_name, ["json", "jsonl"]): # JSON files
+                data = pd.read_json(file_path, lines=is_file_type(file_name, ["jsonl"]))
+            
             else:
-                logger.error(f"Unsupported file format for '{file_name}'")
-                continue
-        else:
-            try:
-                if file_name.endswith(".csv"):  # CSV format
-                    data = pd.read_csv(file_name)
-
-                    if prompt_field not in set(data.columns):
-                        logger.error(
-                            f"Field '{prompt_field}' not found in '{file_name}'."
-                        )
-                        continue
-                    prompts = (
-                        data[prompt_field].dropna().astype(str).tolist()
-                    )
-                else:  # use datasets to load
-                    data = load_dataset(file_name)["train"]
-                    prompts = []
-                    for row in data[prompt_field]:
-                        prompts.extend(normalize_prompts(row))
-            except Exception as e:
-                logger.error(f"Failed to load '{file_name}': {e}")
-
+                logger.error(f"Unsupported file format for '{file_name}'. Please implement customized loading logic.")
+                continue  
+        
+        except Exception as e:
+            logger.error(f"Failed to load '{file_name}': {e}")
+            continue
+        
+        if not check_field and prompt_field not in set(data.columns):  
+            logger.error(
+                f"Field '{prompt_field}' not found in '{file_name}'."
+            )
+            continue  
+        
+        # prompts = data[prompt_field].dropna().astype(str).tolist()
+        # load each row
+        for row in data[prompt_field]:
+            prompts.extend(normalize_prompts(row))
+                
         # Add the dataset information (file name, a list of prompts, select ratio among all datasets, total number of prompts)
         dataset_obj = Dataset(file_name, prompts, ratio, len(prompts))
         datasets.append(dataset_obj)

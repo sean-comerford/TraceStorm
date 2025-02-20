@@ -1,13 +1,13 @@
 {
     "sort_strategy": "random",
     "dataset_1": {
-        "file_name": "conversation_sample.csv",
-        "prompt_field": "user_message",
+        "file_name": "Conversational_dataset.jsonl",
+        "prompt_field": "messages",
         "select_ratio": 6
     },
     "dataset_2": {
         "file_name": "~/.cache/tracestorm/GPT4_coding_sample.csv",
-        "prompt_field": "user_prompt",
+        "prompt_field": "user",
         "select_ratio": 4
     }
 }

@@ -1,3 +1,5 @@
+import os
+
 AZURE_REPO_URL = "Azure/AzurePublicDataset"
 
 AZURE_DATASET_PATHS = {
@@ -12,4 +14,4 @@ DEFAULT_SUBPROCESSES = 1
 
 DEFAULT_MESSAGES = "Tell me a story"
 
-DEFAULT_DATASET_FOLDER = "~/.cache/tracestorm/"
+DEFAULT_DATASET_FOLDER = os.path.expanduser("~/.cache/tracestorm")
