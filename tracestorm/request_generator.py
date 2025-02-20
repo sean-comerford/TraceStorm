@@ -13,7 +13,7 @@ def generate_request(
     nums: int,
     messages: str = DEFAULT_MESSAGES,
     datasets: List[Dataset] = [],
-    sort: str = "random",
+    sort_strategy: str = "random",
     seed: int = None,
 ) -> List[Dict[str, Any]]:
     # generate default requests without datasets
@@ -58,14 +58,14 @@ def generate_request(
             )
 
         # 1. Randomly sort the requests
-        if sort == "random":
+        if sort_strategy == "random":
             if seed is not None:
                 random.seed(seed)
             random.shuffle(dataset_samples)
-        elif sort == "original":  # 2. original order
+        elif sort_strategy == "original":  # 2. original order
             dataset_samples.sort(key=lambda x: x[0])
         else:
-            raise ValueError(f"Unknown sort strategy: {sort}")
+            raise ValueError(f"Unknown sorting strategy: {sort_strategy}")
 
         # Extract the prompts from the list
         requests = [

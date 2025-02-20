@@ -18,7 +18,7 @@ def run_load_test(
     base_url: str,
     api_key: str,
     datasets: List,
-    sort: Optional[str] = None,
+    sort_strategy: Optional[str] = None,
     seed: Optional[int] = None,
 ) -> Tuple[List[Tuple], ResultAnalyzer]:
     """
@@ -31,7 +31,7 @@ def run_load_test(
         base_url: Base URL for API calls
         api_key: API key for authentication
         datasets: List of datasets to generate prompts
-        sort: Sorting strategy for prompts in datasets.
+        sort_strategy: Sorting strategy for prompts in datasets.
         seed: Random seed for sorting.
 
     Returns:
@@ -48,7 +48,7 @@ def run_load_test(
         model_name=model,
         nums=total_requests,
         datasets=datasets,
-        sort=sort,
+        sort_strategy=sort_strategy,
         seed=seed,
     )
     ipc_queue = multiprocessing.Queue()

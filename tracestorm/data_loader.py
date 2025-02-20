@@ -44,6 +44,8 @@ def normalize_prompts(row) -> List[str]:
                     "",
                 )
                 prompts.append(prompt)
+            else: # we cannot handle this type
+                continue
     elif isinstance(row, str):  # if the row is already a prompt
         prompts.append(row)
     elif (
@@ -78,109 +80,112 @@ def load_datasets(
     Return:
         (List[Dataset], str): A list of Dataset objects and the sorting strategy.
     """
+    if datasets_config_file is None:
+        logger.error("Customized data loading logic needs to be implemented!")
+        return [], None
+    
     # Load datasets configuration file
-    if datasets_config_file:
+    try:
+        with open(datasets_config_file, "r") as f:
+            datasets_config = json.load(f)
+    except FileNotFoundError:
+        logger.error(
+            f"Configuration file '{datasets_config_file}' not found"
+        )
+        return [], None
+    except Exception as e:
+        logger.error(f"Error reading '{datasets_config_file}': {e}")
+        return [], None
+
+    # Strategy to sort the provided datasets
+    sort_strategy = datasets_config.pop("sort_strategy", "random")
+
+    # List to store each Dataset
+    datasets = []
+
+    for name, config in datasets_config.items():
+        file_name = config.get("file_name")
+        prompt_field = config.get("prompt_field")
+
         try:
-            with open(datasets_config_file, "r") as f:
-                datasets_config = json.load(f)
-        except FileNotFoundError:
+            ratio = int(config.get("select_ratio", 1))
+        except ValueError:
             logger.error(
-                f"Configuration file '{datasets_config_file}' not found"
+                f"Invalid 'select_ratio' for dataset '{name}', using default 1"
             )
-            return [], None
-        except Exception as e:
-            logger.error(f"Error reading '{datasets_config_file}': {e}")
-            return [], None
+            ratio = 1
 
-        # Strategy to sort the provided datasets
-        sort_strategy = datasets_config.pop("sort", "random")
+        if not file_name or not prompt_field:
+            logger.error(
+                f"Missing required 'file_name' or 'prompt_field' for dataset '{name}'"
+            )
+            continue
+        
+        os.makedirs(DEFAULT_DATASET_FOLDER, exist_ok=True)
+        
+        file_path = (
+            os.path.abspath(file_name)
+            if os.path.exists(file_name)
+            else os.path.join(DEFAULT_DATASET_FOLDER, file_name)
+        )
 
-        # List to store each Dataset
-        datasets = []
+        # Load dataset from local files
+        if os.path.exists(file_path):
+            prompts = []
+            # CSV files
+            if file_name.endswith(".csv"):
+                data = pd.read_csv(file_path)
 
-        for name, config in datasets_config.items():
-            file_name = config.get("file_name")
-            prompt_field = config.get("prompt_field")
+                if prompt_field not in set(data.columns):
+                    logger.error(
+                        f"Field '{prompt_field}' not found in '{file_path}'."
+                    )
+                    continue
+                prompts = data[prompt_field].dropna().astype(str).tolist()
+            # JSON files
+            elif file_name.endswith(".json"):
+                with open(file_path, "r") as f:
+                    data = json.load(f)
 
-            try:
-                ratio = int(config.get("select_ratio", 1))
-            except ValueError:
-                logger.error(
-                    f"Invalid 'select_ratio' for dataset '{name}', using default 1"
-                )
-                ratio = 1
-
-            if not file_name or not prompt_field:
-                logger.error(
-                    f"Missing required 'file_name' or 'prompt_field' for dataset '{name}'"
-                )
+                if isinstance(data, dict):
+                    prompts = data.get(prompt_field, [])
+                    if not isinstance(prompts, list):
+                        logger.error(
+                            f"Field '{prompt_field}' in '{file_path}' is not a list."
+                        )
+                        continue
+            else:
+                logger.error(f"Unsupported file format for '{file_name}'")
                 continue
-
-            file_path = (
-                os.path.abspath(file_name)
-                if os.path.exists(file_name)
-                else os.path.join(DEFAULT_DATASET_FOLDER, file_name)
-            )
-
-            # Load dataset from local files
-            if os.path.exists(file_path):
-                prompts = []
-                # CSV files
-                if file_name.endswith(".csv"):
-                    data = pd.read_csv(file_path)
+        else:
+            try:
+                if file_name.endswith(".csv"):  # CSV format
+                    data = pd.read_csv(file_name)
 
                     if prompt_field not in set(data.columns):
                         logger.error(
-                            f"Field '{prompt_field}' not found in '{file_path}'."
+                            f"Field '{prompt_field}' not found in '{file_name}'."
                         )
                         continue
-                    prompts = data[prompt_field].dropna().astype(str).tolist()
-                # JSON files
-                elif file_name.endswith(".json"):
-                    with open(file_path, "r") as f:
-                        data = json.load(f)
+                    prompts = (
+                        data[prompt_field].dropna().astype(str).tolist()
+                    )
+                else:  # use datasets to load
+                    data = load_dataset(file_name)["train"]
+                    prompts = []
+                    for row in data[prompt_field]:
+                        prompts.extend(normalize_prompts(row))
+            except Exception as e:
+                logger.error(f"Failed to load '{file_name}': {e}")
 
-                    if isinstance(data, dict):
-                        prompts = data.get(prompt_field, [])
-                        if not isinstance(prompts, list):
-                            logger.error(
-                                f"Field '{prompt_field}' in '{file_path}' is not a list."
-                            )
-                            continue
-                else:
-                    logger.error(f"Unsupported file format for '{file_name}'")
-                    continue
-            else:
-                try:
-                    if file_name.endswith(".csv"):  # CSV format
-                        data = pd.read_csv(file_name)
+        # Add the dataset information (file name, a list of prompts, select ratio among all datasets, total number of prompts)
+        dataset_obj = Dataset(file_name, prompts, ratio, len(prompts))
+        datasets.append(dataset_obj)
 
-                        if prompt_field not in set(data.columns):
-                            logger.error(
-                                f"Field '{prompt_field}' not found in '{file_name}'."
-                            )
-                            continue
-                        prompts = (
-                            data[prompt_field].dropna().astype(str).tolist()
-                        )
-                    else:  # use datasets to load
-                        data = load_dataset(file_name)["train"]
-                        prompts = []
-                        for row in data[prompt_field]:
-                            prompts.extend(normalize_prompts(row))
-                except Exception as e:
-                    logger.error(f"Failed to load '{file_name}': {e}")
+        logger.info(
+            f"loaded {file_name} with {len(prompts)} prompts, selection ratio = {ratio}"
+        )
 
-            # Add the dataset information (file name, a list of prompts, select ratio among all datasets, total number of prompts)
-            dataset_obj = Dataset(file_name, prompts, ratio, len(prompts))
-            datasets.append(dataset_obj)
+    return datasets, sort_strategy
 
-            logger.info(
-                f"loaded {file_name} with {len(prompts)} prompts, selection ratio = {ratio}"
-            )
-
-        return datasets, sort_strategy
-
-    else:
-        logger.error("Customized data loading logic needs to be implemented!")
-        return [], None
+        

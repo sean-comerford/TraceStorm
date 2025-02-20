@@ -133,9 +133,9 @@ def main(
 
         if datasets_config_file is None:
             datasets = []
-            sort = None
+            sort_strategy = None
         else:
-            datasets, sort = load_datasets(datasets_config_file)
+            datasets, sort_strategy = load_datasets(datasets_config_file)
 
         _, result_analyzer = run_load_test(
             trace_generator=trace_generator,
@@ -144,7 +144,7 @@ def main(
             base_url=base_url,
             api_key=api_key,
             datasets=datasets,
-            sort=sort,
+            sort_strategy=sort_strategy,
             seed=seed,
         )
 
