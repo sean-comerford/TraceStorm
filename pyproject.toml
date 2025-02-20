@@ -44,3 +44,6 @@ ignore = ["B007"]  # Loop control variable not used within loop body
 [tool.isort]
 use_parentheses = true
 skip_gitignore = true
+
+[tool.setuptools]
+packages = { find = { exclude = ["examples"] } }

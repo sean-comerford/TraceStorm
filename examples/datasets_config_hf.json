@@ -1,10 +1,13 @@
 {
+    "sort_strategy": "original",
     "dataset_1": {
         "file_name": "hf://datasets/fka/awesome-chatgpt-prompts/prompts.csv",
-        "prompt_field": "prompt"
+        "prompt_field": "prompt",
+        "select_ratio": 2
     },
     "dataset_2": {
         "file_name": "lmsys/chatbot_arena_conversations",
-        "prompt_field": "conversation_a"
+        "prompt_field": "conversation_a",
+        "select_ratio": 8
     }
 }
