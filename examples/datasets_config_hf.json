@@ -6,8 +6,8 @@
         "select_ratio": 2
     },
     "dataset_2": {
-        "file_name": "lmsys/chatbot_arena_conversations",
-        "prompt_field": "conversation_a",
+        "file_name": "MAsad789565/Coding_GPT4_Data",
+        "prompt_field": "user",
         "select_ratio": 8
     }
 }
