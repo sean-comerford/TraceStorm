@@ -5,8 +5,8 @@ from dataclasses import dataclass
 from typing import List, Optional, Tuple
 
 import pandas as pd
-
 from datasets import load_dataset
+
 from tracestorm.constants import DEFAULT_DATASET_FOLDER
 from tracestorm.logger import init_logger
 

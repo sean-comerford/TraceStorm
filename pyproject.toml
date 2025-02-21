@@ -12,9 +12,11 @@ authors = [
 ]
 
 dependencies = [
+    "datasets>=3.3.2",
     "openai>=1.58.0",
     "numpy>=1.26.4",
     "pandas>=2.2.3",
+    "requests>=2.31.0",
     "seaborn>=0.13.2",
     "matplotlib>=3.9",
     "click>=8.1.8"
