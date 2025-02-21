@@ -121,7 +121,7 @@ def main(
     subprocesses,
     base_url,
     api_key,
-    datasets_config_file,
+    datasets_config,
 ):
     """Run trace-based load testing for OpenAI API endpoints."""
     try:
@@ -131,11 +131,11 @@ def main(
         if warning_msg:
             logger.warning(warning_msg)
 
-        if datasets_config_file is None:
+        if datasets_config is None:
             datasets = []
             sort_strategy = None
         else:
-            datasets, sort_strategy = load_datasets(datasets_config_file)
+            datasets, sort_strategy = load_datasets(datasets_config)
 
         _, result_analyzer = run_load_test(
             trace_generator=trace_generator,
