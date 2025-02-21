@@ -1,9 +1,10 @@
 import os
-from typing import Tuple
+from typing import Optional, Tuple
 
 import click
 
 from tracestorm.core import run_load_test
+from tracestorm.data_loader import load_datasets
 from tracestorm.logger import init_logger
 from tracestorm.trace_generator import (
     AzureTraceGenerator,
@@ -14,13 +15,13 @@ from tracestorm.trace_generator import (
 logger = init_logger(__name__)
 
 # Valid patterns
-SYNTHETIC_PATTERNS = {"uniform"}
+SYNTHETIC_PATTERNS = {"uniform", "poisson", "random"}
 AZURE_PATTERNS = {"azure_code", "azure_conv"}
 VALID_PATTERNS = SYNTHETIC_PATTERNS | AZURE_PATTERNS
 
 
 def create_trace_generator(
-    pattern: str, rps: int, duration: int
+    pattern: str, rps: int, duration: int, seed: Optional[int] = None
 ) -> Tuple[TraceGenerator, str]:
     """
     Create appropriate trace generator based on pattern and validate parameters.
@@ -29,6 +30,7 @@ def create_trace_generator(
         pattern: Pattern for trace generation
         rps: Requests per second (only for synthetic patterns)
         duration: Duration in seconds (only for synthetic patterns)
+        seed: Random seed for reproducibility of trace patterns
 
     Returns:
         Tuple of (TraceGenerator instance, Warning message or empty string)
@@ -50,7 +52,9 @@ def create_trace_generator(
             raise ValueError(
                 "Duration must be non-negative for synthetic patterns"
             )
-        return SyntheticTraceGenerator(rps, pattern, duration), warning_msg
+        return SyntheticTraceGenerator(
+            rps, pattern, duration, seed
+        ), warning_msg
 
     # Azure patterns
     if rps != 1:
@@ -75,6 +79,7 @@ def create_trace_generator(
 @click.option(
     "--pattern",
     default="uniform",
+    type=click.Choice(sorted(VALID_PATTERNS), case_sensitive=False),
     help=f"Pattern for generating trace. Valid patterns: {sorted(VALID_PATTERNS)}",
 )
 @click.option(
@@ -82,6 +87,12 @@ def create_trace_generator(
     type=int,
     default=10,
     help="Duration in seconds (only used with synthetic patterns)",
+)
+@click.option(
+    "--seed",
+    type=int,
+    default=None,
+    help="Random seed for reproducibility of trace patterns",
 )
 @click.option(
     "--subprocesses", type=int, default=1, help="Number of subprocesses"
@@ -98,14 +109,33 @@ def create_trace_generator(
     default=lambda: os.environ.get("OPENAI_API_KEY", "none"),
     help="OpenAI API Key",
 )
-def main(model, rps, pattern, duration, subprocesses, base_url, api_key):
+@click.option(
+    "--datasets-config", default=None, help="Config file for datasets"
+)
+def main(
+    model,
+    rps,
+    pattern,
+    duration,
+    seed,
+    subprocesses,
+    base_url,
+    api_key,
+    datasets_config,
+):
     """Run trace-based load testing for OpenAI API endpoints."""
     try:
         trace_generator, warning_msg = create_trace_generator(
-            pattern, rps, duration
+            pattern, rps, duration, seed
         )
         if warning_msg:
             logger.warning(warning_msg)
+
+        if datasets_config is None:
+            datasets = []
+            sort_strategy = None
+        else:
+            datasets, sort_strategy = load_datasets(datasets_config)
 
         _, result_analyzer = run_load_test(
             trace_generator=trace_generator,
@@ -113,6 +143,9 @@ def main(model, rps, pattern, duration, subprocesses, base_url, api_key):
             subprocesses=subprocesses,
             base_url=base_url,
             api_key=api_key,
+            datasets=datasets,
+            sort_strategy=sort_strategy,
+            seed=seed,
         )
 
         print(result_analyzer)

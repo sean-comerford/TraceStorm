@@ -1,0 +1,15 @@
+{
+    "sort_strategy": "original",
+    "dataset_1": {
+        "file_name": "hf://datasets/fka/awesome-chatgpt-prompts/prompts.csv",
+        "prompt_field": "prompt",
+        "select_ratio": 2,
+        "split": "train"
+    },
+    "dataset_2": {
+        "file_name": "MAsad789565/Coding_GPT4_Data",
+        "prompt_field": "user",
+        "select_ratio": 8,
+        "split": "train"
+    }
+}

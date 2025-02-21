@@ -3,6 +3,7 @@ import tempfile
 from abc import ABC, abstractmethod
 from typing import List, Optional
 
+import numpy as np
 import pandas as pd
 import requests
 
@@ -32,7 +33,9 @@ class TraceGenerator(ABC):
 class SyntheticTraceGenerator(TraceGenerator):
     """Generate synthetic traces based on patterns."""
 
-    def __init__(self, rps: int, pattern: str, duration: int):
+    def __init__(
+        self, rps: int, pattern: str, duration: int, seed: Optional[int] = None
+    ):
         """
         Initialize synthetic trace generator.
 
@@ -40,6 +43,7 @@ class SyntheticTraceGenerator(TraceGenerator):
             rps (int): Requests per second. Must be non-negative.
             pattern (str): Distribution pattern ('uniform', 'random', 'poisson', etc.).
             duration (int): Total duration in seconds. Must be non-negative.
+            seed (int): Seed for reproducibility of 'poisson' and 'random' patterns
         """
         if not isinstance(rps, int) or rps < 0:
             raise ValueError("rps must be a non-negative integer")
@@ -49,6 +53,8 @@ class SyntheticTraceGenerator(TraceGenerator):
         self.rps = rps
         self.pattern = pattern
         self.duration = duration
+        if seed is not None:
+            np.random.seed(seed)
 
     def generate(self) -> List[int]:
         total_requests = self.rps * self.duration
@@ -59,6 +65,7 @@ class SyntheticTraceGenerator(TraceGenerator):
             return timestamps
 
         if self.pattern == "uniform":
+            # Distribute requests evenly across the duration
             interval = total_duration_ms / total_requests
             current_time = 0.0
             for _ in range(total_requests):
@@ -66,6 +73,19 @@ class SyntheticTraceGenerator(TraceGenerator):
                 timestamp = min(timestamp, total_duration_ms - 1)
                 timestamps.append(timestamp)
                 current_time += interval
+        elif self.pattern == "poisson":
+            # Exponential distribution for intervals
+            rate_ms = self.rps / 1000
+            intervals = np.random.exponential(1 / rate_ms, total_requests)
+            current_time = 0.0
+            for i in range(total_requests):
+                timestamp = int(round(current_time))
+                timestamps.append(timestamp)
+                current_time += intervals[i]
+        elif self.pattern == "random":
+            timestamps = np.random.randint(
+                0, total_duration_ms, size=total_requests
+            ).tolist()
         else:
             raise ValueError(f"Unknown pattern: {self.pattern}")
 

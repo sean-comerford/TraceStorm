@@ -50,7 +50,7 @@ tracestorm --model "Qwen/Qwen2.5-1.5B-Instruct" --pattern azure_code
 #### Example Command for Loading Prompts from Datasets
 
 ```bash
-tracestorm --model "Qwen/Qwen2.5-1.5B-Instruct" --duration 30 --datasets-config-file ./examples/datasets_config_hf.json
+tracestorm --model "Qwen/Qwen2.5-1.5B-Instruct" --duration 30 --datasets-config ./examples/datasets_config_hf.json
 ```
 
 
@@ -60,7 +60,7 @@ tracestorm --model "Qwen/Qwen2.5-1.5B-Instruct" --duration 30 --datasets-config-
 - Refer to `./examples/datasets_config_local.json` for an example configuration.
 - If you want to test loading from local files, please run `./examples/test_data_loader.py` first to download and save two datasets.
 
-2. Remote datasets from Hugging Face 
+2. Remote datasets from Hugging Face
 - Refer to `./examples/datasets_config_hf.json` for an example configuration.
 
 **Sorting Strategy**: Defines how prompts from multiple datasets are ordered
@@ -85,6 +85,6 @@ Please check `./examples/datasets_config_default.json` for required fields in `d
 - `--base-url`: Optional. OpenAI Base URL (default is `http://localhost:8000/v1`).
 - `--api-key`: Optional. OpenAI API Key (default is `none`).
 - `--seed`: Optional. Random seed for trace pattern reproducibility (default is `none`).
-- `--datasets-config-file`: Optional. Configuration file for loading prompt messages from provided datasets. Uses `DEFAULT_MESSAGES` is not specified.
+- `--datasets-config`: Optional. Configuration file for loading prompt messages from provided datasets. Uses `DEFAULT_MESSAGES` is not specified.
 
 Make sure to adjust the parameters according to your testing needs!
