@@ -110,7 +110,7 @@ def create_trace_generator(
     help="OpenAI API Key",
 )
 @click.option(
-    "--datasets-config-file", default=None, help="Config file for datasets"
+    "--datasets-config", default=None, help="Config file for datasets"
 )
 def main(
     model,
