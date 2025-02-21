@@ -47,17 +47,44 @@ To load a trace from the Azure dataset, use:
 tracestorm --model "Qwen/Qwen2.5-1.5B-Instruct" --pattern azure_code
 ```
 
+#### Example Command for Loading Prompts from Datasets
+
+```bash
+tracestorm --model "Qwen/Qwen2.5-1.5B-Instruct" --duration 30 --datasets-config-file ./examples/datasets_config_hf.json
+```
+
+
+**Supported Dataset Sources**:
+
+1. Locally stored, pre-processed datasets
+- Refer to `./examples/datasets_config_local.json` for an example configuration.
+- If you want to test loading from local files, please run `./examples/test_data_loader.py` first to download and save two datasets.
+
+2. Remote datasets from Hugging Face 
+- Refer to `./examples/datasets_config_hf.json` for an example configuration.
+
+**Sorting Strategy**: Defines how prompts from multiple datasets are ordered
+- random (default): Shuffles prompts randomly.
+- original: Maintains the original order of prompts.
+
+Please check `./examples/datasets_config_default.json` for required fields in `datasets-config-file`. This file contains placeholders for necessary configurations.
+
+
 ### Command Options
 
 - `--model`: Required. The name of the model to use.
 - `--rps`: Optional. Requests per second (default is 1, only used for synthetic patterns).
 - `--pattern`: Optional. Pattern for generating trace. Valid patterns include:
   - `uniform`: Distributes requests evenly across the duration.
+  - `poisson`: Generates request timings based on a Poisson process.
+  - `random`: Generates requests at random intervals within the duration.
   - `azure_code`: Loads the Azure inference dataset for code.
   - `azure_conv`: Loads the Azure inference dataset for conversation.
 - `--duration`: Optional. Duration in seconds (default is 10, only used for synthetic patterns).
 - `--subprocesses`: Optional. Number of subprocesses to use (default is 1).
 - `--base-url`: Optional. OpenAI Base URL (default is `http://localhost:8000/v1`).
 - `--api-key`: Optional. OpenAI API Key (default is `none`).
+- `--seed`: Optional. Random seed for trace pattern reproducibility (default is `none`).
+- `--datasets-config-file`: Optional. Configuration file for loading prompt messages from provided datasets. Uses `DEFAULT_MESSAGES` is not specified.
 
 Make sure to adjust the parameters according to your testing needs!
