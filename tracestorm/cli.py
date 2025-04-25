@@ -124,6 +124,12 @@ def create_trace_generator(
     default=None,
     help="Directory to save results (defaults to tracestorm_results/{timestamp})",
 )
+@click.option(
+    "--include-raw-results",
+    is_flag=True,
+    default=False,
+    help="Include raw results in the output",
+)
 def main(
     model,
     rps,
@@ -136,6 +142,7 @@ def main(
     datasets_config,
     plot,
     output_dir,
+    include_raw_results,
 ):
     """Run trace-based load testing for OpenAI API endpoints."""
     try:
@@ -174,7 +181,9 @@ def main(
 
         # Save raw results (always)
         results_file = os.path.join(output_dir, "results.json")
-        result_analyzer.export_json(results_file, include_raw=True)
+        result_analyzer.export_json(
+            results_file, include_raw=include_raw_results
+        )
         logger.info(f"Raw results saved to: {results_file}")
 
         # Only generate plots if requested
