@@ -61,7 +61,7 @@ class SyntheticTraceGenerator(TraceGenerator):
             np.random.seed(seed)
 
     def generate(self) -> List[int]:
-        total_requests = int(self.rps * self.duration)
+        total_requests = int(round(self.rps * self.duration))
         total_duration_ms = self.duration * 1000
         timestamps = []
 
