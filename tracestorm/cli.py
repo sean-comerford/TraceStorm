@@ -1,3 +1,4 @@
+import datetime
 import os
 from typing import Optional, Tuple
 
@@ -112,6 +113,17 @@ def create_trace_generator(
 @click.option(
     "--datasets-config", default=None, help="Config file for datasets"
 )
+@click.option(
+    "--plot",
+    is_flag=True,
+    default=False,
+    help="Generate performance plots",
+)
+@click.option(
+    "--output-dir",
+    default=None,
+    help="Directory to save results (defaults to tracestorm_results/{timestamp})",
+)
 def main(
     model,
     rps,
@@ -122,9 +134,19 @@ def main(
     base_url,
     api_key,
     datasets_config,
+    plot,
+    output_dir,
 ):
     """Run trace-based load testing for OpenAI API endpoints."""
     try:
+        # Set up output directory
+        if output_dir is None:
+            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            output_dir = os.path.join("tracestorm_results", timestamp)
+
+        os.makedirs(output_dir, exist_ok=True)
+        logger.info(f"Results will be saved to: {output_dir}")
+
         trace_generator, warning_msg = create_trace_generator(
             pattern, rps, duration, seed
         )
@@ -149,7 +171,18 @@ def main(
         )
 
         print(result_analyzer)
-        result_analyzer.plot_cdf()
+
+        # Save raw results (always)
+        results_file = os.path.join(output_dir, "results.json")
+        result_analyzer.export_json(results_file, include_raw=True)
+        logger.info(f"Raw results saved to: {results_file}")
+
+        # Only generate plots if requested
+        if plot:
+            ttft_file = os.path.join(output_dir, "ttft_cdf.png")
+            tpot_file = os.path.join(output_dir, "tpot_cdf.png")
+            result_analyzer.plot_cdf(ttft_file=ttft_file, tpot_file=tpot_file)
+            logger.info("Performance plots generated")
 
     except ValueError as e:
         logger.error(f"Configuration error: {str(e)}")
