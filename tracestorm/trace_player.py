@@ -115,12 +115,12 @@ class TracePlayer:
         """
         while not (self.shutdown_flag.is_set() and self.dispatch_queue.empty()):
             try:
-                # Attempt to get a queued item; if none are available quickly, re-check shutdown_flag.
-                item = await asyncio.wait_for(
-                    self.dispatch_queue.get(), timeout=0.1
-                )
-            except asyncio.TimeoutError:
-                continue  # No tasks currently, keep looping.
+                item = self.dispatch_queue.get_nowait()
+            except asyncio.QueueEmpty:
+                if self.shutdown_flag.is_set():
+                    break
+                await asyncio.sleep(0.1)
+                continue
 
             timestamp, request_data = item
             logger.info(
@@ -152,6 +152,9 @@ class TracePlayer:
                 await asyncio.sleep(delay)
 
             request_data = self.requests[i]
+            # Wait if queue is full
+            while self.dispatch_queue.full():
+                await asyncio.sleep(0.1)
             # We put both the scheduled timestamp and the request data into the queue.
             await self.dispatch_queue.put((scheduled_time, request_data))
 

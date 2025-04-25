@@ -1,4 +1,5 @@
 import multiprocessing
+from queue import Empty
 from typing import List, Optional, Tuple
 
 from tracestorm.logger import init_logger
@@ -83,6 +84,18 @@ def run_load_test(
                 f"Received result from {name} for timestamp {timestamp}: {resp['token_count']} tokens"
             )
             aggregated_results.append((name, timestamp, resp))
+        except Empty:
+            # Timeout occurred, but maybe not all processes are finished.
+            logger.warning(
+                "No results received from IPC queue in the last 30 seconds. Waiting..."
+            )
+            # Check if all processes are still alive before continuing
+            if not any(p.is_alive() for p in processes):
+                logger.warning(
+                    "All processes seem to have finished. Stopping result collection."
+                )
+                break
+            continue
         except Exception as e:
             logger.error(f"Error collecting results: {str(e)}", exc_info=True)
             break
