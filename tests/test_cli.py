@@ -21,12 +21,28 @@ class TestCLI(unittest.TestCase):
         self.assertIsInstance(generator, SyntheticTraceGenerator)
         self.assertEqual(warning, "")
 
+    def test_create_trace_generator_synthetic_float_rps(self):
+        """Test creating synthetic trace generator with float RPS."""
+        generator, warning = create_trace_generator("uniform", 2.5, 60)
+
+        self.assertIsInstance(generator, SyntheticTraceGenerator)
+        self.assertEqual(warning, "")
+        self.assertEqual(generator.rps, 2.5)
+
     def test_create_trace_generator_azure(self):
         """Test creating Azure trace generator."""
         generator, warning = create_trace_generator("azure_code", 10, 60)
 
         self.assertIsInstance(generator, AzureTraceGenerator)
         self.assertIn("RPS parameter (10) is ignored", warning)
+        self.assertIn("Duration parameter (60) is ignored", warning)
+
+    def test_create_trace_generator_azure_float_rps(self):
+        """Test creating Azure trace generator with float RPS."""
+        generator, warning = create_trace_generator("azure_code", 0.5, 60)
+
+        self.assertIsInstance(generator, AzureTraceGenerator)
+        self.assertIn("RPS parameter (0.5) is ignored", warning)
         self.assertIn("Duration parameter (60) is ignored", warning)
 
     def test_create_trace_generator_invalid(self):
@@ -68,6 +84,29 @@ class TestCLI(unittest.TestCase):
                 "http://test.com",
                 "--api-key",
                 "test-key",
+            ],
+        )
+
+        self.assertEqual(result.exit_code, 0)
+        mock_run_load_test.assert_called_once()
+
+    @patch("tracestorm.cli.run_load_test")
+    def test_cli_with_float_rps(self, mock_run_load_test):
+        """Test CLI with float RPS value."""
+        mock_analyzer = MagicMock()
+        mock_run_load_test.return_value = ([], mock_analyzer)
+
+        result = self.runner.invoke(
+            main,
+            [
+                "--model",
+                "gpt-3.5-turbo",
+                "--rps",
+                "0.5",
+                "--pattern",
+                "uniform",
+                "--duration",
+                "30",
             ],
         )
 
