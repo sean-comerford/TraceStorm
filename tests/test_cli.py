@@ -1,3 +1,4 @@
+import os
 import unittest
 from unittest.mock import MagicMock, patch
 
@@ -82,6 +83,92 @@ class TestCLI(unittest.TestCase):
 
         self.assertNotEqual(result.exit_code, 0)
         self.assertIn("Invalid value for '--pattern'", result.output)
+
+    @patch("tracestorm.cli.run_load_test")
+    @patch("tracestorm.cli.os.makedirs")
+    @patch("tracestorm.cli.datetime")
+    def test_cli_with_output_dir(
+        self, mock_datetime, mock_makedirs, mock_run_load_test
+    ):
+        """Test CLI with output directory option."""
+        mock_analyzer = MagicMock()
+        mock_run_load_test.return_value = ([], mock_analyzer)
+        mock_datetime.datetime.now.return_value.strftime.return_value = (
+            "20240101_120000"
+        )
+
+        # Test with explicit output dir
+        result = self.runner.invoke(
+            main,
+            [
+                "--model",
+                "gpt-3.5-turbo",
+                "--output-dir",
+                "custom_output_dir",
+            ],
+        )
+
+        self.assertEqual(result.exit_code, 0)
+        mock_makedirs.assert_called_with("custom_output_dir", exist_ok=True)
+        mock_analyzer.export_json.assert_called_once()
+
+        # Reset mocks
+        mock_makedirs.reset_mock()
+        mock_analyzer.reset_mock()
+
+        # Test with default output dir
+        result = self.runner.invoke(
+            main,
+            [
+                "--model",
+                "gpt-3.5-turbo",
+            ],
+        )
+
+        self.assertEqual(result.exit_code, 0)
+        mock_makedirs.assert_called_with(
+            os.path.join("tracestorm_results", "20240101_120000"), exist_ok=True
+        )
+        mock_analyzer.export_json.assert_called_once()
+
+    @patch("tracestorm.cli.run_load_test")
+    @patch("tracestorm.cli.os.makedirs")
+    def test_cli_with_plot_option(self, mock_makedirs, mock_run_load_test):
+        """Test CLI with plot option."""
+        mock_analyzer = MagicMock()
+        mock_run_load_test.return_value = ([], mock_analyzer)
+
+        # Test with plot enabled
+        result = self.runner.invoke(
+            main,
+            [
+                "--model",
+                "gpt-3.5-turbo",
+                "--plot",
+                "--output-dir",
+                "test_dir",
+            ],
+        )
+
+        self.assertEqual(result.exit_code, 0)
+        mock_analyzer.plot_cdf.assert_called_once()
+
+        # Reset mock
+        mock_analyzer.reset_mock()
+
+        # Test with plot disabled (default)
+        result = self.runner.invoke(
+            main,
+            [
+                "--model",
+                "gpt-3.5-turbo",
+                "--output-dir",
+                "test_dir",
+            ],
+        )
+
+        self.assertEqual(result.exit_code, 0)
+        mock_analyzer.plot_cdf.assert_not_called()
 
 
 if __name__ == "__main__":
