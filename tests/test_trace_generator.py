@@ -21,13 +21,43 @@ class TestSyntheticTraceGenerator(unittest.TestCase):
         expected = [0, 500, 1000, 1500, 2000, 2500]
         self.assertEqual(result, expected)
 
+    def test_uniform_distribution_float_rps(self):
+        """Test uniform distribution pattern with float RPS value."""
+        generator = SyntheticTraceGenerator(
+            rps=1.5, pattern="uniform", duration=4
+        )
+        # Let's get the actual result and use direct value comparison
+        result = generator.generate()
+        # 1.5 RPS for 4 seconds = 6 requests
+        self.assertEqual(len(result), 6)
+        # First and last timestamps should be consistent
+        self.assertEqual(result[0], 0)
+        self.assertTrue(result[-1] < 4000)  # Should be less than duration in ms
+
     def test_invalid_rps(self):
         """Test invalid RPS value."""
         with self.assertRaises(ValueError) as context:
             SyntheticTraceGenerator(rps=-1, pattern="uniform", duration=10)
         self.assertEqual(
-            str(context.exception), "rps must be a non-negative integer"
+            str(context.exception), "rps must be a non-negative number"
         )
+
+    def test_invalid_rps_float(self):
+        """Test invalid RPS float value."""
+        with self.assertRaises(ValueError) as context:
+            SyntheticTraceGenerator(rps=-0.5, pattern="uniform", duration=10)
+        self.assertEqual(
+            str(context.exception), "rps must be a non-negative number"
+        )
+
+    def test_valid_float_rps(self):
+        """Test valid float RPS value."""
+        generator = SyntheticTraceGenerator(
+            rps=0.5, pattern="uniform", duration=10
+        )
+        result = generator.generate()
+        # 0.5 RPS for 10 seconds = 5 total requests
+        self.assertEqual(len(result), 5)
 
     def test_invalid_duration(self):
         """Test invalid duration value."""

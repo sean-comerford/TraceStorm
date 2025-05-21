@@ -1,7 +1,7 @@
 import os
 import tempfile
 from abc import ABC, abstractmethod
-from typing import List, Optional
+from typing import List, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -34,19 +34,23 @@ class SyntheticTraceGenerator(TraceGenerator):
     """Generate synthetic traces based on patterns."""
 
     def __init__(
-        self, rps: int, pattern: str, duration: int, seed: Optional[int] = None
+        self,
+        rps: Union[int, float],
+        pattern: str,
+        duration: int,
+        seed: Optional[int] = None,
     ):
         """
         Initialize synthetic trace generator.
 
         Args:
-            rps (int): Requests per second. Must be non-negative.
+            rps (Union[int, float]): Requests per second. Must be non-negative.
             pattern (str): Distribution pattern ('uniform', 'random', 'poisson', etc.).
             duration (int): Total duration in seconds. Must be non-negative.
             seed (int): Seed for reproducibility of 'poisson' and 'random' patterns
         """
-        if not isinstance(rps, int) or rps < 0:
-            raise ValueError("rps must be a non-negative integer")
+        if not isinstance(rps, (int, float)) or rps < 0:
+            raise ValueError("rps must be a non-negative number")
         if not isinstance(duration, int) or duration < 0:
             raise ValueError("duration must be a non-negative integer")
 
@@ -57,7 +61,7 @@ class SyntheticTraceGenerator(TraceGenerator):
             np.random.seed(seed)
 
     def generate(self) -> List[int]:
-        total_requests = self.rps * self.duration
+        total_requests = int(round(self.rps * self.duration))
         total_duration_ms = self.duration * 1000
         timestamps = []
 

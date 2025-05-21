@@ -1,5 +1,5 @@
 import os
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Union
 
 import click
 
@@ -21,7 +21,10 @@ VALID_PATTERNS = SYNTHETIC_PATTERNS | AZURE_PATTERNS
 
 
 def create_trace_generator(
-    pattern: str, rps: int, duration: int, seed: Optional[int] = None
+    pattern: str,
+    rps: Union[int, float],
+    duration: int,
+    seed: Optional[int] = None,
 ) -> Tuple[TraceGenerator, str]:
     """
     Create appropriate trace generator based on pattern and validate parameters.
@@ -72,8 +75,8 @@ def create_trace_generator(
 @click.option("--model", required=True, help="Model name")
 @click.option(
     "--rps",
-    type=int,
-    default=1,
+    type=float,
+    default=1.0,
     help="Requests per second (only used with synthetic patterns)",
 )
 @click.option(
