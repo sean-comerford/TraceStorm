@@ -1,13 +1,8 @@
 {
     "sort_strategy": "random",
     "dataset_1": {
-        "file_name": "Conversational_dataset.jsonl",
-        "prompt_field": "messages",
-        "select_ratio": 6
-    },
-    "dataset_2": {
-        "file_name": "~/.cache/tracestorm/GPT4_coding_sample.csv",
-        "prompt_field": "user",
+        "file_name": "/home/sean/.cache/tracestorm/chatbot_arena.jsonl",
+        "prompt_field": "conversation_a",
         "select_ratio": 4
     }
 }
