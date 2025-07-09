@@ -1,6 +1,7 @@
 import datetime
 import os
 from typing import Optional, Tuple, Union
+import csv
 
 import click
 
@@ -14,6 +15,65 @@ from tracestorm.trace_generator import (
 )
 
 logger = init_logger(__name__)
+
+# --- Add config.txt reading ---
+def read_config(config_path="/home/sean/diss/virtualize_llm/config.txt"):
+    config = {}
+    if not os.path.exists(config_path):
+        logger.warning(f"Config file not found: {config_path}")
+        return config
+    with open(config_path, "r") as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith("//") or "=" not in line:
+                continue
+            k, v = line.split("=", 1)
+            config[k.strip()] = v.strip()
+    return config
+# --- end config.txt reading ---
+
+def clear_csv_files(duration, rps, memory_location, batch_size):
+    with open(f"/home/sean/diss/virtualize_llm/experiment_results/peer_access/{batch_size}_batch_size/data/token_latency_{memory_location}_duration_{duration}_rps_{rps}.csv", 'w', newline='') as csv_file:
+        writer = csv.writer(csv_file)
+        writer.writerow(["Request_ID", "Token_Index", "Latency (s)"])
+    
+    # Clear request metrics CSV file
+    with open(f"/home/sean/diss/virtualize_llm/experiment_results/peer_access/{batch_size}_batch_size/data/request_metrics_{memory_location}_duration_{duration}_rps_{rps}.csv", 'w', newline='') as csv_file:
+        writer = csv.writer(csv_file)
+        writer.writerow(["Request_ID", "Throughput (tokens/s)", "Average_Latency (s)", "First_Token_Latency (s)", "Max_Token_Latency (s)"])
+
+    # Clear background sync access CSV file
+    with open(f"/home/sean/diss/virtualize_llm/experiment_results/peer_access/{batch_size}_batch_size/data/background_synchronisation_{memory_location}_duration_{duration}_rps_{rps}.csv", 'w', newline='') as csv_file:
+        writer = csv.writer(csv_file)
+        writer.writerow(["Operation", "Latency (us)", "Num Tokens", "Num Layers", "Request ID"])
+
+    # with open(f"/home/sean/diss/virtualize_llm/experiment_results/peer_access/mem_free_{memory_location}_input_{input_len}_output_{output_len}.csv", 'w', newline='') as csv_file:
+    #     writer = csv.writer(csv_file)
+    #     writer.writerow(["Operation", "Latency (us)", "Num Tokens", "Num Layers"])
+
+    with open(f"/home/sean/diss/virtualize_llm/experiment_results/peer_access/{batch_size}_batch_size/data/write_kv_{memory_location}_duration_{duration}_rps_{rps}.csv", 'w', newline='') as csv_file:
+        writer = csv.writer(csv_file)
+        writer.writerow(["Operation", "Tokens Written", "Layer ID", "Latency (us)"])
+
+    with open(f"/home/sean/diss/virtualize_llm/experiment_results/peer_access/{batch_size}_batch_size/data/read_kv_{memory_location}_duration_{duration}_rps_{rps}.csv", 'w', newline='') as csv_file:
+        writer = csv.writer(csv_file)
+        writer.writerow(["Operation", "Layer ID", "Latency (us)"])
+
+    with open(f"/home/sean/diss/virtualize_llm/experiment_results/peer_access/{batch_size}_batch_size/data/write_kernel_{memory_location}_duration_{duration}_rps_{rps}.csv", 'w', newline='') as csv_file:
+        writer = csv.writer(csv_file)
+        writer.writerow(["Operation", "Tokens Written", "Layer ID", "Latency (us)"])
+
+    with open(f"/home/sean/diss/virtualize_llm/experiment_results/peer_access/{batch_size}_batch_size/data/free_chunks_{memory_location}_duration_{duration}_rps_{rps}.csv", 'w', newline='') as csv_file:
+        writer = csv.writer(csv_file)
+        writer.writerow(["Request ID", "Number of Free Chunks"])
+    
+    with open(f"/home/sean/diss/virtualize_llm/experiment_results/peer_access/{batch_size}_batch_size/data/prepare_access_{memory_location}_duration_{duration}_rps_{rps}.csv", 'w', newline='') as csv_file:
+        writer = csv.writer(csv_file)
+        writer.writerow(["Operation", "Latency (us)", "Num Tokens", "Layer ID"])
+    
+    with open(f"/home/sean/diss/virtualize_llm/experiment_results/peer_access/{batch_size}_batch_size/data/non_contig_writes_{memory_location}_duration_{duration}_rps_{rps}.csv", 'w', newline='') as csv_file:
+        writer = csv.writer(csv_file)
+        writer.writerow(["Request ID", "Num non-contig writes", "Average time for converting to contig line (us)"])
 
 # Valid patterns
 SYNTHETIC_PATTERNS = {"uniform", "poisson", "random"}
@@ -74,6 +134,7 @@ def create_trace_generator(
 
 @click.command()
 @click.option("--model", required=True, help="Model name")
+# NOTE: THIS IS NOW OVERWRITTEN BY THE RPS IN CONFIG.TXT
 @click.option(
     "--rps",
     type=float,
@@ -86,6 +147,7 @@ def create_trace_generator(
     type=click.Choice(sorted(VALID_PATTERNS), case_sensitive=False),
     help=f"Pattern for generating trace. Valid patterns: {sorted(VALID_PATTERNS)}",
 )
+# NOTE: THIS IS NOW OVERWRITTEN BY THE DURATION IN CONFIG.TXT
 @click.option(
     "--duration",
     type=int,
@@ -147,15 +209,25 @@ def main(
     output_dir,
     include_raw_results,
 ):
+    config = read_config()
+    method = config["METHOD"]
+    batch_size = config["BATCH_SIZE"]
+    memory_location = config["MEMORY_LOCATION"]
+    duration = int(config.get("DURATION", 10))  # Default to 10 seconds if not set
+    rps = float(config.get("RPS", 1.0))  # Default to 1.0 if not set
+    rps_str = str(int(rps)) if rps == int(rps) else str(rps)
+    clear_csv_files(duration, rps_str, memory_location, batch_size)
     """Run trace-based load testing for OpenAI API endpoints."""
     try:
         # Set up output directory
         if output_dir is None:
             timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
             output_dir = os.path.join("tracestorm_results", timestamp)
+            output_dir2 = f"/home/sean/diss/virtualize_llm/experiment_results/{method}/{batch_size}_batch_size/data"
 
         os.makedirs(output_dir, exist_ok=True)
-        logger.info(f"Results will be saved to: {output_dir}")
+        os.makedirs(output_dir2, exist_ok=True)
+        logger.info(f"Results will be saved to: {output_dir} and {output_dir2}")
 
         trace_generator, warning_msg = create_trace_generator(
             pattern, rps, duration, seed
@@ -184,15 +256,21 @@ def main(
 
         # Save raw results (always)
         results_file = os.path.join(output_dir, "results.json")
+        results_file2 = os.path.join(output_dir2, f"results_{memory_location}.json")
         result_analyzer.export_json(
             results_file, include_raw=include_raw_results
         )
-        logger.info(f"Raw results saved to: {results_file}")
+        result_analyzer.export_json(
+            results_file2, include_raw=include_raw_results
+        )
+        logger.info(f"Raw results saved to: {results_file} and {results_file2}")
 
         # Only generate plots if requested
         if plot:
             ttft_file = os.path.join(output_dir, "ttft_cdf.png")
+            ttft_file2 = os.path.join(output_dir2, f"ttft_cdf_{memory_location}.png")
             tpot_file = os.path.join(output_dir, "tpot_cdf.png")
+            tpot_file2 = os.path.join(output_dir2, f"tpot_cdf_{memory_location}.png")
             result_analyzer.plot_cdf(ttft_file=ttft_file, tpot_file=tpot_file)
             logger.info("Performance plots generated")
 
