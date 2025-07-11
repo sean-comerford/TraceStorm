@@ -1,0 +1,8 @@
+{
+    "sort_strategy": "random",
+    "dataset_1": {
+        "file_name": "/home/sean/.cache/tracestorm/lmsys-chat-1m.jsonl",
+        "prompt_field": "conversation",
+        "select_ratio": 4
+    }
+}

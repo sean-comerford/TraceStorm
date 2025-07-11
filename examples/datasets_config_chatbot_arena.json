@@ -1,0 +1,8 @@
+{
+    "sort_strategy": "random",
+    "dataset_1": {
+        "file_name": "/home/sean/.cache/tracestorm/chatbot_arena.jsonl",
+        "prompt_field": "conversation",
+        "select_ratio": 4
+    }
+}

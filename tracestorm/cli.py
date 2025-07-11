@@ -32,18 +32,18 @@ def read_config(config_path="/home/sean/diss/virtualize_llm/config.txt"):
     return config
 # --- end config.txt reading ---
 
-def clear_csv_files(duration, rps, memory_location, batch_size):
-    with open(f"/home/sean/diss/virtualize_llm/experiment_results/peer_access/{batch_size}_batch_size/data/token_latency_{memory_location}_duration_{duration}_rps_{rps}.csv", 'w', newline='') as csv_file:
+def clear_csv_files(duration, rps, memory_location, batch_size, method, dataset):
+    with open(f"/home/sean/diss/virtualize_llm/experiment_results/{method}/" + f"{batch_size}_batch_size/{dataset}/data/token_latency_{memory_location}_duration_{duration}_rps_{rps}.csv", 'w', newline='') as csv_file:
         writer = csv.writer(csv_file)
         writer.writerow(["Request_ID", "Token_Index", "Latency (s)"])
     
     # Clear request metrics CSV file
-    with open(f"/home/sean/diss/virtualize_llm/experiment_results/peer_access/{batch_size}_batch_size/data/request_metrics_{memory_location}_duration_{duration}_rps_{rps}.csv", 'w', newline='') as csv_file:
+    with open(f"/home/sean/diss/virtualize_llm/experiment_results/{method}/" + f"{batch_size}_batch_size/{dataset}/data/request_metrics_{memory_location}_duration_{duration}_rps_{rps}.csv", 'w', newline='') as csv_file:
         writer = csv.writer(csv_file)
         writer.writerow(["Request_ID", "Throughput (tokens/s)", "Average_Latency (s)", "First_Token_Latency (s)", "Max_Token_Latency (s)"])
 
     # Clear background sync access CSV file
-    with open(f"/home/sean/diss/virtualize_llm/experiment_results/peer_access/{batch_size}_batch_size/data/background_synchronisation_{memory_location}_duration_{duration}_rps_{rps}.csv", 'w', newline='') as csv_file:
+    with open(f"/home/sean/diss/virtualize_llm/experiment_results/{method}/" + f"{batch_size}_batch_size/{dataset}/data/background_synchronisation_{memory_location}_duration_{duration}_rps_{rps}.csv", 'w', newline='') as csv_file:
         writer = csv.writer(csv_file)
         writer.writerow(["Operation", "Latency (us)", "Num Tokens", "Num Layers", "Request ID"])
 
@@ -51,27 +51,27 @@ def clear_csv_files(duration, rps, memory_location, batch_size):
     #     writer = csv.writer(csv_file)
     #     writer.writerow(["Operation", "Latency (us)", "Num Tokens", "Num Layers"])
 
-    with open(f"/home/sean/diss/virtualize_llm/experiment_results/peer_access/{batch_size}_batch_size/data/write_kv_{memory_location}_duration_{duration}_rps_{rps}.csv", 'w', newline='') as csv_file:
+    with open(f"/home/sean/diss/virtualize_llm/experiment_results/{method}/" + f"{batch_size}_batch_size/{dataset}/data/write_kv_{memory_location}_duration_{duration}_rps_{rps}.csv", 'w', newline='') as csv_file:
         writer = csv.writer(csv_file)
         writer.writerow(["Operation", "Tokens Written", "Layer ID", "Latency (us)"])
 
-    with open(f"/home/sean/diss/virtualize_llm/experiment_results/peer_access/{batch_size}_batch_size/data/read_kv_{memory_location}_duration_{duration}_rps_{rps}.csv", 'w', newline='') as csv_file:
+    with open(f"/home/sean/diss/virtualize_llm/experiment_results/{method}/" + f"{batch_size}_batch_size/{dataset}/data/read_kv_{memory_location}_duration_{duration}_rps_{rps}.csv", 'w', newline='') as csv_file:
         writer = csv.writer(csv_file)
         writer.writerow(["Operation", "Layer ID", "Latency (us)"])
 
-    with open(f"/home/sean/diss/virtualize_llm/experiment_results/peer_access/{batch_size}_batch_size/data/write_kernel_{memory_location}_duration_{duration}_rps_{rps}.csv", 'w', newline='') as csv_file:
+    with open(f"/home/sean/diss/virtualize_llm/experiment_results/{method}/" + f"{batch_size}_batch_size/{dataset}/data/write_kernel_{memory_location}_duration_{duration}_rps_{rps}.csv", 'w', newline='') as csv_file:
         writer = csv.writer(csv_file)
         writer.writerow(["Operation", "Tokens Written", "Layer ID", "Latency (us)"])
 
-    with open(f"/home/sean/diss/virtualize_llm/experiment_results/peer_access/{batch_size}_batch_size/data/free_chunks_{memory_location}_duration_{duration}_rps_{rps}.csv", 'w', newline='') as csv_file:
+    with open(f"/home/sean/diss/virtualize_llm/experiment_results/{method}/" + f"{batch_size}_batch_size/{dataset}/data/free_chunks_{memory_location}_duration_{duration}_rps_{rps}.csv", 'w', newline='') as csv_file:
         writer = csv.writer(csv_file)
         writer.writerow(["Request ID", "Number of Free Chunks"])
     
-    with open(f"/home/sean/diss/virtualize_llm/experiment_results/peer_access/{batch_size}_batch_size/data/prepare_access_{memory_location}_duration_{duration}_rps_{rps}.csv", 'w', newline='') as csv_file:
+    with open(f"/home/sean/diss/virtualize_llm/experiment_results/{method}/" + f"{batch_size}_batch_size/{dataset}/data/prepare_access_{memory_location}_duration_{duration}_rps_{rps}.csv", 'w', newline='') as csv_file:
         writer = csv.writer(csv_file)
         writer.writerow(["Operation", "Latency (us)", "Num Tokens", "Layer ID"])
     
-    with open(f"/home/sean/diss/virtualize_llm/experiment_results/peer_access/{batch_size}_batch_size/data/non_contig_writes_{memory_location}_duration_{duration}_rps_{rps}.csv", 'w', newline='') as csv_file:
+    with open(f"/home/sean/diss/virtualize_llm/experiment_results/{method}/" + f"{batch_size}_batch_size/{dataset}/data/non_contig_writes_{memory_location}_duration_{duration}_rps_{rps}.csv", 'w', newline='') as csv_file:
         writer = csv.writer(csv_file)
         writer.writerow(["Request ID", "Num non-contig writes", "Average time for converting to contig line (us)"])
 
@@ -215,15 +215,16 @@ def main(
     memory_location = config["MEMORY_LOCATION"]
     duration = int(config.get("DURATION", 10))  # Default to 10 seconds if not set
     rps = float(config.get("RPS", 1.0))  # Default to 1.0 if not set
+    dataset = config["DATASET"]
     rps_str = str(int(rps)) if rps == int(rps) else str(rps)
-    clear_csv_files(duration, rps_str, memory_location, batch_size)
+    clear_csv_files(duration, rps_str, memory_location, batch_size, method, dataset)
     """Run trace-based load testing for OpenAI API endpoints."""
     try:
         # Set up output directory
         if output_dir is None:
             timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
             output_dir = os.path.join("tracestorm_results", timestamp)
-            output_dir2 = f"/home/sean/diss/virtualize_llm/experiment_results/{method}/{batch_size}_batch_size/data"
+            output_dir2 = f"/home/sean/diss/virtualize_llm/experiment_results/{method}/" + f"{batch_size}_batch_size/{dataset}/data"
 
         os.makedirs(output_dir, exist_ok=True)
         os.makedirs(output_dir2, exist_ok=True)
@@ -234,13 +235,15 @@ def main(
         )
         if warning_msg:
             logger.warning(warning_msg)
-
-        if datasets_config is None:
-            datasets = []
-            sort_strategy = None
-        else:
-            datasets, sort_strategy = load_datasets(datasets_config)
-
+            
+        
+        # Always use dataset_config_{dataset}.json from the absolute path
+        dataset_config_file = f"/home/sean/diss/virtualize_llm/TraceStorm/examples/datasets_config_{dataset}.json"
+        if not os.path.exists(dataset_config_file):
+            logger.error(f"Dataset config file not found: {dataset_config_file}")
+            raise click.UsageError(f"Dataset config file not found: {dataset_config_file}")
+        datasets, sort_strategy = load_datasets(dataset_config_file)
+        
         _, result_analyzer = run_load_test(
             trace_generator=trace_generator,
             model=model,
