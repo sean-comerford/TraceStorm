@@ -2,6 +2,8 @@ import datetime
 import os
 from typing import Optional, Tuple, Union
 import csv
+import numpy as np
+import matplotlib.pyplot as plt
 
 import click
 
@@ -13,6 +15,7 @@ from tracestorm.trace_generator import (
     SyntheticTraceGenerator,
     TraceGenerator,
 )
+
 
 logger = init_logger(__name__)
 
@@ -121,16 +124,60 @@ def create_trace_generator(
         ), warning_msg
 
     # Azure patterns
-    if rps != 1:
-        warning_msg = (
-            f"Warning: RPS parameter ({rps}) is ignored for Azure patterns"
-        )
-    if duration != 10:
-        warning_msg += f"\nWarning: Duration parameter ({duration}) is ignored for Azure patterns"
-
     dataset_type = pattern.replace("azure_", "")
-    return AzureTraceGenerator(dataset_type), warning_msg
 
+    target_rps: Optional[float]
+    if rps in (None, 0):
+        target_rps = None          # keep native tempo
+    else:
+        if rps <= 0:
+            raise ValueError("RPS must be > 0 when scaling an Azure trace")
+        target_rps = float(rps)
+
+    window_duration = duration if duration else None   # 0 ⇒ full trace
+
+    return (
+        AzureTraceGenerator(
+            dataset_type=dataset_type,
+            target_rps=target_rps,
+            window_duration=window_duration,
+            seed=seed,
+        ),
+        warning_msg,
+    )
+
+def plot_arrival_distribution(
+    timestamps_ms: list[int],
+    save_path: str,
+    rps,
+    dataset
+) -> None:
+    """
+    Parameters
+    ----------
+    timestamps_ms : list[int]
+        Relative timestamps (ms) starting at 0, e.g. trace_generator.timestamps
+    save_path : str
+        Full filename for the PNG.
+    """
+    if not timestamps_ms:
+        logger.warning("No timestamps – skipping arrival histogram.")
+        return
+
+    # One-second buckets
+    max_s = int(np.ceil(timestamps_ms[-1] / 1000))
+    hist, _ = np.histogram(timestamps_ms, bins=max_s, range=(0, max_s * 1000))
+
+    plt.figure(figsize=(8, 4))
+    plt.bar(range(max_s), hist, width=1.0, edgecolor="none")
+    plt.xlabel("Seconds since window start")
+    plt.ylabel("Requests")
+    plt.title(f"Request-arrival distribution (random window) - RPS - {rps} - Dataset - {dataset}")
+    plt.tight_layout()
+    plt.savefig(save_path, dpi=150)
+    plt.close()
+
+    logger.info("Arrival-distribution plot saved to: %s", save_path)
 
 @click.command()
 @click.option("--model", required=True, help="Model name")
@@ -283,6 +330,15 @@ def main(
     except Exception as e:
         logger.error(f"Unexpected error: {str(e)}", exc_info=True)
         raise
+    
+    # ensure plots directory exists
+    plots_dir = f"/home/sean/diss/virtualize_llm/experiment_results/{method}/{batch_size}_batch_size/{dataset}/plots"
+    os.makedirs(plots_dir, exist_ok=True)
+
+    arrival_plot = os.path.join(plots_dir, f"arrival_hist_{memory_location}.png")
+    if hasattr(trace_generator, "timestamps"):
+        plot_arrival_distribution(trace_generator.timestamps, arrival_plot, rps, dataset)
+        print(f"Request arrival distribution plot saved to: {arrival_plot}")
 
 
 if __name__ == "__main__":
