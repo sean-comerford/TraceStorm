@@ -8,6 +8,7 @@ import seaborn as sns
 
 from tracestorm.logger import init_logger
 from tracestorm.utils import get_unique_file_path
+import csv
 
 logger = init_logger(__name__)
 
@@ -120,7 +121,7 @@ class ResultAnalyzer:
 
         return f"{ttft_str}\n\n{tpot_str}"
 
-    def export_json(self, file_path: str, include_raw: bool = False) -> None:
+    def export_json(self, file_path: str, include_raw: bool = False, method=None, batch_size=None, dataset=None, duration=None, rps=None, memory_location=None) -> None:
         """
         Exports the summary statistics and optionally the raw results to a JSON file.
 
@@ -139,6 +140,21 @@ class ResultAnalyzer:
 
         data_to_export = {"summary": summary}
 
+        # --- Add average write/read size ---
+        avg_write_size_bytes = None
+        #avg_read_size_bytes = None
+
+        # Build file paths
+        base_dir = f"/home/sean/diss/virtualize_llm/experiment_results/{method}/{batch_size}_batch_size/{dataset}/data"
+        write_csv = f"{base_dir}/write_kv_{memory_location}_duration_{duration}_rps_{rps}.csv"
+        # read_csv = f"{base_dir}/read_kv_{memory_location}_duration_{duration}_rps_{rps}.csv"
+
+        avg_write_size_bytes = self.compute_avg_size(write_csv, "Average size of write per layer (bytes)")
+        # avg_read_size_bytes = compute_avg_size(read_csv, "Average size of read per layer (bytes)")
+
+        data_to_export["avg_write_size_bytes"] = avg_write_size_bytes
+        # data_to_export["avg_read_size_bytes"] = avg_read_size_bytes
+
         if include_raw:
             data_to_export["raw_results"] = self.raw_results
 
@@ -150,6 +166,17 @@ class ResultAnalyzer:
         except IOError as e:
             logger.error(f"Failed to export data to {file_path}: {e}")
             raise
+    
+    # Helper to compute average from a CSV column
+    def compute_avg_size(self, csv_path, col_name):
+        try:
+            with open(csv_path, "r") as f:
+                reader = csv.DictReader(f)
+                sizes = [float(row[col_name]) for row in reader if row.get(col_name)]
+            return sum(sizes) / len(sizes) if sizes else None
+        except Exception as e:
+            logger.warning(f"Could not compute average from {csv_path}: {e}")
+            return None
 
     def plot_cdf(
         self, ttft_file: str = "ttft_cdf.png", tpot_file: str = "tpot_cdf.png"

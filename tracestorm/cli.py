@@ -56,11 +56,11 @@ def clear_csv_files(duration, rps, memory_location, batch_size, method, dataset)
 
     with open(f"/home/sean/diss/virtualize_llm/experiment_results/{method}/" + f"{batch_size}_batch_size/{dataset}/data/write_kv_{memory_location}_duration_{duration}_rps_{rps}.csv", 'w', newline='') as csv_file:
         writer = csv.writer(csv_file)
-        writer.writerow(["Operation", "Tokens Written", "Layer ID", "Latency (us)"])
+        writer.writerow(["Operation", "Tokens Written", "Layer ID", "Latency (us)", "Average size of write per layer (bytes)"])
 
-    with open(f"/home/sean/diss/virtualize_llm/experiment_results/{method}/" + f"{batch_size}_batch_size/{dataset}/data/read_kv_{memory_location}_duration_{duration}_rps_{rps}.csv", 'w', newline='') as csv_file:
-        writer = csv.writer(csv_file)
-        writer.writerow(["Operation", "Layer ID", "Latency (us)"])
+    # with open(f"/home/sean/diss/virtualize_llm/experiment_results/{method}/" + f"{batch_size}_batch_size/{dataset}/data/read_kv_{memory_location}_duration_{duration}_rps_{rps}.csv", 'w', newline='') as csv_file:
+    #     writer = csv.writer(csv_file)
+    #     writer.writerow(["Operation", "Layer ID", "Latency (us)", "Average size of read per layer (bytes)"])
 
     with open(f"/home/sean/diss/virtualize_llm/experiment_results/{method}/" + f"{batch_size}_batch_size/{dataset}/data/write_kernel_{memory_location}_duration_{duration}_rps_{rps}.csv", 'w', newline='') as csv_file:
         writer = csv.writer(csv_file)
@@ -308,10 +308,10 @@ def main(
         results_file = os.path.join(output_dir, "results.json")
         results_file2 = os.path.join(output_dir2, f"results_{memory_location}.json")
         result_analyzer.export_json(
-            results_file, include_raw=include_raw_results
+            results_file, include_raw=include_raw_results, method=method, batch_size=batch_size, dataset=dataset, duration=duration, rps=rps, memory_location=memory_location
         )
         result_analyzer.export_json(
-            results_file2, include_raw=include_raw_results
+            results_file2, include_raw=include_raw_results, method=method, batch_size=batch_size, dataset=dataset, duration=duration, rps=rps, memory_location=memory_location
         )
         logger.info(f"Raw results saved to: {results_file} and {results_file2}")
 
