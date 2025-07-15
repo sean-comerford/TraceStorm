@@ -266,12 +266,20 @@ def main(
     rps_str = str(int(rps)) if rps == int(rps) else str(rps)
     clear_csv_files(duration, rps_str, memory_location, batch_size, method, dataset)
     """Run trace-based load testing for OpenAI API endpoints."""
+
+    color_map = {
+        "remote": "#E24A33",   # red/orange
+        "local": "#348ABD",    # blue
+        "original": "#F5A623", # orange
+    }
     try:
-        # Set up output directory
+        base_dir_data = f"/home/sean/diss/virtualize_llm/experiment_results/{method}/{batch_size}_batch_size/{dataset}/data"
+        base_dir_plots = f"/home/sean/diss/virtualize_llm/experiment_results/{method}/{batch_size}_batch_size/{dataset}/plots"
+        # Set up output directory for data
         if output_dir is None:
             timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
             output_dir = os.path.join("tracestorm_results", timestamp)
-            output_dir2 = f"/home/sean/diss/virtualize_llm/experiment_results/{method}/" + f"{batch_size}_batch_size/{dataset}/data"
+            output_dir2 = base_dir_data
 
         os.makedirs(output_dir, exist_ok=True)
         os.makedirs(output_dir2, exist_ok=True)
@@ -285,6 +293,7 @@ def main(
             
         
         # Always use dataset_config_{dataset}.json from the absolute path
+        print(f"Loading {dataset} Dataset ...")
         dataset_config_file = f"/home/sean/diss/virtualize_llm/TraceStorm/examples/datasets_config_{dataset}.json"
         if not os.path.exists(dataset_config_file):
             logger.error(f"Dataset config file not found: {dataset_config_file}")
@@ -314,15 +323,76 @@ def main(
             results_file2, include_raw=include_raw_results, method=method, batch_size=batch_size, dataset=dataset, duration=duration, rps=rps, memory_location=memory_location
         )
         logger.info(f"Raw results saved to: {results_file} and {results_file2}")
+        
+        # Save tpot and ttft data to csv files
+        result_analyzer.save_tpot_ttft(base_dir_data, memory_location, duration, rps_str)
+        
 
-        # Only generate plots if requested
+        # Generate plots
         if plot:
-            ttft_file = os.path.join(output_dir, "ttft_cdf.png")
-            ttft_file2 = os.path.join(output_dir2, f"ttft_cdf_{memory_location}.png")
-            tpot_file = os.path.join(output_dir, "tpot_cdf.png")
-            tpot_file2 = os.path.join(output_dir2, f"tpot_cdf_{memory_location}.png")
-            result_analyzer.plot_cdf(ttft_file=ttft_file, tpot_file=tpot_file)
-            logger.info("Performance plots generated")
+            # Plot cdf of ttft and tpot for local, remote and original
+            local_tpot_file = os.path.join(
+                base_dir_data, f"tpot_local_duration_{duration}_rps_{rps_str}.csv"
+            )
+            remote_tpot_file = os.path.join(
+                base_dir_data, f"tpot_remote_duration_{duration}_rps_{rps_str}.csv"
+            )
+            original_tpot_file = os.path.join(
+                base_dir_data, f"tpot_original_duration_{duration}_rps_{rps_str}.csv"
+            )
+            local_ttft_file = os.path.join(
+                base_dir_data, f"ttft_local_duration_{duration}_rps_{rps_str}.csv"
+            )
+            remote_ttft_file = os.path.join(
+                base_dir_data, f"ttft_remote_duration_{duration}_rps_{rps_str}.csv"
+            )
+            original_ttft_file = os.path.join(
+                base_dir_data, f"ttft_original_duration_{duration}_rps_{rps_str}.csv"
+            )
+            result_analyzer.plot_cdf_comparison(base_dir_plots, color_map, duration, rps, 
+                local_tpot_file, remote_tpot_file, original_tpot_file,
+                local_ttft_file, remote_ttft_file, original_ttft_file
+            )
+            logger.info("Plotted CDF of TTFT and TPOT for local, remote and original.")
+            
+            # ttft_file = os.path.join(output_dir, "ttft_cdf.png")
+            # ttft_file2 = os.path.join(output_dir2, f"ttft_cdf_{memory_location}.png")
+            # tpot_file = os.path.join(output_dir, "tpot_cdf.png")
+            # tpot_file2 = os.path.join(output_dir2, f"tpot_cdf_{memory_location}.png")
+        #     result_analyzer.plot_cdf(ttft_file=ttft_file, tpot_file=tpot_file,
+        # method=method, batch_size=batch_size, dataset=dataset, duration=duration, rps=rps, memory_location=memory_location)
+            # Plot cdf of write latency for local and remote
+            local_write_csv = os.path.join(
+                base_dir_data,
+                f"write_kv_local_duration_{duration}_rps_{rps_str}.csv"
+            )
+            remote_write_csv = os.path.join(
+                base_dir_data,
+                f"write_kv_remote_duration_{duration}_rps_{rps_str}.csv"
+            )
+            write_cdf_output_name = f"write_kv_latency_cdf_duration_{duration}_rps_{rps_str}.png"
+            write_plot_path = os.path.join(base_dir_plots, write_cdf_output_name)
+            result_analyzer.plot_write_latency_cdf(local_write_csv, remote_write_csv, write_plot_path, color_map)
+            logger.info(f"Write latency CDF plot saved to {write_plot_path}")
+            
+            # Plot graph of timeline of batch size of write
+            batch_write_timeline_output_name = f"write_kv_batch_size_timeline_duration_{duration}_rps_{rps_str}.png"
+            batch_write_timeline_plot_path = os.path.join(base_dir_plots, batch_write_timeline_output_name)
+            result_analyzer.plot_batch_size_timeline(local_write_csv, remote_write_csv, batch_write_timeline_plot_path, color_map)
+            
+            # Plot the cdf of prepare_access latency for remote and local
+            local_prepare_csv = os.path.join(
+                base_dir_data,
+                f"prepare_access_local_duration_{duration}_rps_{rps_str}.csv"
+            )
+            remote_prepare_csv = os.path.join(
+                base_dir_data,
+                f"prepare_access_remote_duration_{duration}_rps_{rps_str}.csv"
+            )
+            prepare_cdf_output_name = f"prepare_access_latency_cdf_duration_{duration}_rps_{rps_str}.png"
+            prepare_plot_path = os.path.join(base_dir_plots, prepare_cdf_output_name)
+            result_analyzer.plot_prepare_access_cdf(local_prepare_csv, remote_prepare_csv, prepare_plot_path, color_map)
+            logger.info(f"Prepare access CDF plot saved to {prepare_plot_path}")
 
     except ValueError as e:
         logger.error(f"Configuration error: {str(e)}")

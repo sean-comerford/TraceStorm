@@ -9,6 +9,7 @@ import seaborn as sns
 from tracestorm.logger import init_logger
 from tracestorm.utils import get_unique_file_path
 import csv
+import os
 
 logger = init_logger(__name__)
 
@@ -138,23 +139,51 @@ class ResultAnalyzer:
             logger.error("No results to export.")
             raise ValueError("No results to export.")
 
-        data_to_export = {"summary": summary}
-
-        # --- Add average write/read size ---
-        avg_write_size_bytes = None
-        #avg_read_size_bytes = None
-
-        # Build file paths
+        # --- Add write statistics ---
+        rps_str = str(int(float(rps))) if rps is not None else "None"
         base_dir = f"/home/sean/diss/virtualize_llm/experiment_results/{method}/{batch_size}_batch_size/{dataset}/data"
-        write_csv = f"{base_dir}/write_kv_{memory_location}_duration_{duration}_rps_{rps}.csv"
-        # read_csv = f"{base_dir}/read_kv_{memory_location}_duration_{duration}_rps_{rps}.csv"
+        write_csv = f"{base_dir}/write_kv_{memory_location}_duration_{duration}_rps_{rps_str}.csv"
 
-        avg_write_size_bytes = self.compute_avg_size(write_csv, "Average size of write per layer (bytes)")
-        # avg_read_size_bytes = compute_avg_size(read_csv, "Average size of read per layer (bytes)")
+        # Read Latency (us) and Average size of write per layer (bytes)
+        latencies_us = []
+        write_sizes = []
+        try:
+            with open(write_csv, "r") as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    lat = row.get("Latency (us)")
+                    size = row.get("Average size of write per layer (bytes)")
+                    if lat:
+                        latencies_us.append(float(lat))
+                    if size:
+                        write_sizes.append(float(size))
+        except Exception as e:
+            logger.warning(f"Could not read write stats from {write_csv}: {e}")
 
-        data_to_export["avg_write_size_bytes"] = avg_write_size_bytes
-        # data_to_export["avg_read_size_bytes"] = avg_read_size_bytes
+        # Convert latencies to s
+        latencies_s = np.array(latencies_us) / 1_000_000.0 if latencies_us else np.array([])
 
+        write_stats = {}
+        if latencies_s.size > 0:
+            write_stats = {
+                "count": float(len(latencies_s)),
+                "mean": float(np.mean(latencies_s)),
+                "std": float(np.std(latencies_s)),
+                "min": float(np.min(latencies_s)),
+                "25%": float(np.percentile(latencies_s, 25)),
+                "50%": float(np.percentile(latencies_s, 50)),
+                "75%": float(np.percentile(latencies_s, 75)),
+                "99%": float(np.percentile(latencies_s, 99)),
+                "max": float(np.max(latencies_s)),
+                "avg_bytes": float(np.mean(write_sizes)) if write_sizes else None,
+            }
+        else:
+            write_stats = {k: None for k in ["count", "mean", "std", "min", "25%", "50%", "75%", "99%", "max", "avg_bytes"]}
+
+        # Add write section to summary
+        summary["write"] = write_stats
+
+        data_to_export = {"summary": summary}
         if include_raw:
             data_to_export["raw_results"] = self.raw_results
 
@@ -179,7 +208,8 @@ class ResultAnalyzer:
             return None
 
     def plot_cdf(
-        self, ttft_file: str = "ttft_cdf.png", tpot_file: str = "tpot_cdf.png"
+        self, ttft_file: str = "ttft_cdf.png", tpot_file: str = "tpot_cdf.png",
+        method=None, batch_size=None, dataset=None, duration=None, rps=None, memory_location=None
     ) -> None:
         """
         Plots the Cumulative Distribution Function (CDF) of ttft and tpot and saves the figures to files.
@@ -201,6 +231,7 @@ class ResultAnalyzer:
 
         # Plot CDF for TTFT
         if self.ttft:
+            print(f"[DEBUG] Plotting TTFT CDF with {len(self.ttft)} data points.")
             try:
                 plt.figure(figsize=(8, 6))
                 sns.ecdfplot(self.ttft, color="blue")
@@ -219,6 +250,7 @@ class ResultAnalyzer:
         # Flatten tpot list of lists to a single list for plotting
         tpot_flat = [item for sublist in self.tpot for item in sublist]
         if tpot_flat:
+            print(f"[DEBUG] Plotting TPOT CDF with {len(tpot_flat)} data points.")
             try:
                 plt.figure(figsize=(8, 6))
                 sns.ecdfplot(tpot_flat, color="green")
@@ -233,3 +265,205 @@ class ResultAnalyzer:
             except Exception as e:
                 logger.error(f"Failed to plot TPOT CDF: {e}")
                 raise
+            
+
+    # Save self.tpot and self.ttft to CSV files (convert seconds to milliseconds)
+    def save_tpot_ttft(self, base_dir_data, memory_location, duration, rps):
+        """
+        Save the tpot and ttft data to CSV files for further analysis.
+        Times are converted from seconds to milliseconds.
+        """
+        if not os.path.exists(base_dir_data):
+            logger.error(f"Base directory does not exist: {base_dir_data}")
+            return
+
+        # Prepare file paths
+        tpot_file = os.path.join(base_dir_data, f"tpot_{memory_location}_duration_{duration}_rps_{rps}.csv")
+        ttft_file = os.path.join(base_dir_data, f"ttft_{memory_location}_duration_{duration}_rps_{rps}.csv")
+
+        # Save tpot data (flatten and convert to ms)
+        try:
+            with open(tpot_file, "w", newline='') as f:
+                writer = csv.writer(f)
+                writer.writerow(["tpot (ms)"])
+                for tpot_list in self.tpot:
+                    for tpot in tpot_list:
+                        writer.writerow([tpot * 1000.0])
+            logger.info(f"TPOT data saved to {tpot_file}")
+        except Exception as e:
+            logger.error(f"Failed to save TPOT data: {e}")
+
+        # Save ttft data (convert to ms)
+        try:
+            with open(ttft_file, "w", newline='') as f:
+                writer = csv.writer(f)
+                writer.writerow(["ttft (ms)"])
+                for ttft in self.ttft:
+                    writer.writerow([ttft * 1000.0])
+            logger.info(f"TTFT data saved to {ttft_file}")
+        except Exception as e:
+            logger.error(f"Failed to save TTFT data: {e}")
+
+    # Plot the CDF of original, remote, and local TPOT and TTFT on separate plots
+    def plot_cdf_comparison(self, base_dir_plots, color_map, duration, rps, local_tpot_file, remote_tpot_file, original_tpot_file, 
+                            local_ttft_file, remote_ttft_file, original_ttft_file):
+        """
+        Plots CDF comparisons for TPOT and TTFT across original, remote, and local data.
+
+        Args:
+            base_dir_plots (str): Directory to save the plots.
+            color_map (dict): Mapping of 'original', 'remote', 'local' to colors.
+            duration, rps: Used for plot file naming.
+            *_tpot_file, *_ttft_file (str): CSV file paths for each data source.
+        """
+
+        # Helper to read a single-column CSV and return the values as a numpy array
+        def read_csv_column(file_path, col_name):
+            try:
+                df = pd.read_csv(file_path)
+                return df[col_name].values
+            except Exception as e:
+                logger.warning(f"Could not read {col_name} from {file_path}: {e}")
+                return []
+
+        # Read TPOT data (ms)
+        local_tpot = read_csv_column(local_tpot_file, "tpot (ms)")
+        remote_tpot = read_csv_column(remote_tpot_file, "tpot (ms)")
+        original_tpot = read_csv_column(original_tpot_file, "tpot (ms)")
+
+        # Plot TPOT CDF
+        sns.set(style="whitegrid")
+        plt.figure(figsize=(8, 6))
+        if len(original_tpot):
+            sns.ecdfplot(original_tpot, label="Original", color=color_map.get("original", "black"))
+        if len(remote_tpot):
+            sns.ecdfplot(remote_tpot, label="Remote", color=color_map.get("remote", "red"))
+        if len(local_tpot):
+            sns.ecdfplot(local_tpot, label="Local", color=color_map.get("local", "blue"))
+        plt.xlabel("TPOT (ms)")
+        plt.ylabel("Cumulative Probability")
+        plt.title("CDF of Time per Output Token (TPOT)")
+        plt.legend()
+        plt.tight_layout()
+        tpot_plot_path = os.path.join(base_dir_plots, f"tpot_cdf_comparison_duration_{duration}_rps_{rps}.png")
+        plt.savefig(tpot_plot_path)
+        plt.close()
+        logger.info(f"TPOT CDF comparison plot saved to {tpot_plot_path}")
+
+        # Read TTFT data (ms)
+        local_ttft = read_csv_column(local_ttft_file, "ttft (ms)")
+        remote_ttft = read_csv_column(remote_ttft_file, "ttft (ms)")
+        original_ttft = read_csv_column(original_ttft_file, "ttft (ms)")
+
+        # Plot TTFT CDF
+        plt.figure(figsize=(8, 6))
+        if len(original_ttft):
+            sns.ecdfplot(original_ttft, label="Original", color=color_map.get("original", "black"))
+        if len(remote_ttft):
+            sns.ecdfplot(remote_ttft, label="Remote", color=color_map.get("remote", "red"))
+        if len(local_ttft):
+            sns.ecdfplot(local_ttft, label="Local", color=color_map.get("local", "blue"))
+        plt.xlabel("TTFT (ms)")
+        plt.ylabel("Cumulative Probability")
+        plt.title("CDF of Time to First Token (TTFT)")
+        plt.legend()
+        plt.tight_layout()
+        ttft_plot_path = os.path.join(base_dir_plots, f"ttft_cdf_comparison_duration_{duration}_rps_{rps}.png")
+        plt.savefig(ttft_plot_path)
+        plt.close()
+        logger.info(f"TTFT CDF comparison plot saved to {ttft_plot_path}")
+        
+
+    # Plot CDF of write latency for local and remote
+    def plot_write_latency_cdf(self, local_csv, remote_csv, write_plot_path, color_map):
+        """
+        Plots the CDF of write latency for local and remote memory locations.
+
+        Args:
+            local_csv (str): Path to the CSV file containing local write latency data.
+            remote_csv (str): Path to the CSV file containing remote write latency data.
+            write_plot_path (str): Path to save the CDF plot.
+            color_map (dict): Dictionary mapping memory locations to colors.
+        """
+        # Read data
+        local_df = pd.read_csv(local_csv)
+        remote_df = pd.read_csv(remote_csv)
+
+        # Extract write latencies
+        local_latencies = local_df["Latency (us)"].values / 1000.0  # Convert to ms
+        remote_latencies = remote_df["Latency (us)"].values / 1000.0  # Convert to ms
+
+        # Plot using seaborn for consistent style
+        sns.set(style="whitegrid")
+        plt.figure(figsize=(8, 6))
+        sns.ecdfplot(local_latencies, label="Local", color=color_map["local"])
+        sns.ecdfplot(remote_latencies, label="Remote", color=color_map["remote"])
+        plt.xlabel("Write Latency (ms)")
+        plt.ylabel("Cumulative Probability")
+        plt.title("CDF of Write Latency for Local and Remote")
+        plt.legend()
+        plt.tight_layout()
+        plt.savefig(write_plot_path)
+        plt.close()
+
+    def plot_prepare_access_cdf(self, local_prepare_csv, remote_prepare_csv, prepare_plot_path, color_map):
+        """
+        Plots the CDF of prepare access time for local and remote memory locations.
+
+        Args:
+            local_prepare_csv (str): Path to the CSV file containing local prepare access data.
+            remote_prepare_csv (str): Path to the CSV file containing remote prepare access data.
+            prepare_plot_path (str): Path to save the CDF plot.
+            color_map (dict): Dictionary mapping memory locations to colors.
+        """
+        # Read data
+        local_df = pd.read_csv(local_prepare_csv)
+        remote_df = pd.read_csv(remote_prepare_csv)
+
+        # Extract prepare access times and convert from microseconds to milliseconds
+        local_times = local_df["Latency (us)"].values / 1000.0
+        remote_times = remote_df["Latency (us)"].values / 1000.0
+
+        # Plot using seaborn for consistent style
+        sns.set(style="whitegrid")
+        plt.figure(figsize=(8, 6))
+        sns.ecdfplot(local_times, label="Local", color=color_map["local"])
+        sns.ecdfplot(remote_times, label="Remote", color=color_map["remote"])
+        plt.xlabel("Prepare Access Time (ms)")
+        plt.ylabel("Cumulative Probability")
+        plt.title("CDF of Prepare Access Time for Local and Remote")
+        plt.legend()
+        plt.tight_layout()
+        plt.savefig(prepare_plot_path)
+        plt.close()
+        
+    def plot_batch_size_timeline(self, local_write_csv, remote_write_csv, output_file, color_map):
+        """
+        Plots the batch size timeline for local and remote memory locations.
+
+        Args:
+            local_write_csv (str): Path to the CSV file containing local write data.
+            remote_write_csv (str): Path to the CSV file containing remote write data.
+            output_file (str): Path to save the batch size timeline plot.
+            color_map (dict): Dictionary mapping memory locations to colors.
+        """
+        # Read data
+        local_df = pd.read_csv(local_write_csv)
+        remote_df = pd.read_csv(remote_write_csv)
+
+        # Extract batch sizes
+        local_batch_sizes = local_df["Tokens Written"].values
+        remote_batch_sizes = remote_df["Tokens Written"].values
+
+        # Plot using seaborn for consistent style
+        sns.set(style="whitegrid")
+        plt.figure(figsize=(10, 6))
+        sns.lineplot(x=local_df.index, y=local_batch_sizes, label="Local", color=color_map["local"])
+        sns.lineplot(x=remote_df.index, y=remote_batch_sizes, label="Remote", color=color_map["remote"])
+        plt.xlabel("Index")
+        plt.ylabel("Batch Size")
+        plt.title("Batch Size Timeline for Local and Remote Memory Locations")
+        plt.legend()
+        plt.tight_layout()
+        plt.savefig(output_file)
+        plt.close()
