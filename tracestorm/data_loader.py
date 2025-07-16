@@ -185,14 +185,21 @@ def load_datasets(
             logger.error(f"Failed to load '{file_name}': {e}")
             continue
 
-        if not check_field and prompt_field not in set(data.columns):
+        if not check_field and prompt_field != "input+context" and prompt_field not in set(data.columns):
             logger.error(f"Field '{prompt_field}' not found in '{file_name}'.")
             continue
 
         # prompts = data[prompt_field].dropna().astype(str).tolist()
         # load each row
-        for row in data[prompt_field]:
-            prompts.extend(normalize_prompts(row))
+        if prompt_field == "input+context":
+            for _, row in data.iterrows():
+                input_val = str(row.get("input", ""))
+                context_val = str(row.get("context", ""))
+                prompt = input_val + " " + context_val
+                prompts.append(prompt)
+        else:
+            for row in data[prompt_field]:
+                prompts.extend(normalize_prompts(row))
 
         # Add the dataset information (file name, a list of prompts, select ratio among all datasets, total number of prompts)
         dataset_obj = Dataset(file_name, prompts, ratio, len(prompts))

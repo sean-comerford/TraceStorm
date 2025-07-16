@@ -6,6 +6,8 @@ from typing import Any, Dict, List
 from openai import AsyncOpenAI
 
 from tracestorm.logger import init_logger
+from transformers import AutoTokenizer
+tokenizer = AutoTokenizer.from_pretrained("meta-llama/Llama-3.2-1B-Instruct")
 
 logger = init_logger(__name__)
 
@@ -81,6 +83,20 @@ class TracePlayer:
         token_count = 0
         time_records = [time.time()]
 
+        # Compute the input token count for the request
+        prompt = None
+        if "messages" in request_data and isinstance(request_data["messages"], list):
+            # Concatenate all user messages for input length
+            prompt = " ".join(
+                m.get("content", "") for m in request_data["messages"] if m.get("role") == "user"
+            )
+        elif "prompt" in request_data:
+            prompt = request_data["prompt"]
+        else:
+            prompt = ""
+
+        input_length = len(tokenizer.encode(prompt)) if prompt else 0
+        
         try:
             stream = await self.client.chat.completions.create(**request_data)
             async for completion in stream:
@@ -104,6 +120,8 @@ class TracePlayer:
         return {
             "result": result,
             "token_count": token_count,
+            "input_length": input_length,
+            "output_length": len(tokenizer.encode(result)),
             "time_records": time_records,
             "error": None,
         }

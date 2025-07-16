@@ -1,0 +1,8 @@
+{
+    "sort_strategy": "random",
+    "dataset_1": {
+        "file_name": "/home/sean/.cache/tracestorm/longbench.jsonl",
+        "prompt_field": "input+context",
+        "select_ratio": 4
+    }
+}

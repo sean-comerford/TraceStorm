@@ -4,6 +4,7 @@ from typing import Optional, Tuple, Union
 import csv
 import numpy as np
 import matplotlib.pyplot as plt
+import pandas as pd
 
 import click
 
@@ -35,7 +36,7 @@ def read_config(config_path="/home/sean/diss/virtualize_llm/config.txt"):
     return config
 # --- end config.txt reading ---
 
-def clear_csv_files(duration, rps, memory_location, batch_size, method, dataset):
+def clear_csv_files(duration, rps, memory_location, batch_size, method, dataset, base_data_dir):
     with open(f"/home/sean/diss/virtualize_llm/experiment_results/{method}/" + f"{batch_size}_batch_size/{dataset}/data/token_latency_{memory_location}_duration_{duration}_rps_{rps}.csv", 'w', newline='') as csv_file:
         writer = csv.writer(csv_file)
         writer.writerow(["Request_ID", "Token_Index", "Latency (s)"])
@@ -77,6 +78,10 @@ def clear_csv_files(duration, rps, memory_location, batch_size, method, dataset)
     with open(f"/home/sean/diss/virtualize_llm/experiment_results/{method}/" + f"{batch_size}_batch_size/{dataset}/data/non_contig_writes_{memory_location}_duration_{duration}_rps_{rps}.csv", 'w', newline='') as csv_file:
         writer = csv.writer(csv_file)
         writer.writerow(["Request ID", "Num non-contig writes", "Average time for converting to contig line (us)"])
+    
+    with open(base_data_dir + f"/input_output_lengths_{memory_location}_duration_{duration}_rps_{rps}.csv", 'w', newline='') as csvfile:
+        writer = csv.writer(csvfile)
+        writer.writerow(["Request Timestamp", "Input Length", "Output Length"])
 
 # Valid patterns
 SYNTHETIC_PATTERNS = {"uniform", "poisson", "random"}
@@ -264,7 +269,7 @@ def main(
     rps = float(config.get("RPS", 1.0))  # Default to 1.0 if not set
     dataset = config["DATASET"]
     rps_str = str(int(rps)) if rps == int(rps) else str(rps)
-    clear_csv_files(duration, rps_str, memory_location, batch_size, method, dataset)
+    
     """Run trace-based load testing for OpenAI API endpoints."""
 
     color_map = {
@@ -272,9 +277,10 @@ def main(
         "local": "#348ABD",    # blue
         "original": "#F5A623", # orange
     }
+    base_dir_data = f"/home/sean/diss/virtualize_llm/experiment_results/{method}/{batch_size}_batch_size/{dataset}/data"
+    base_dir_plots = f"/home/sean/diss/virtualize_llm/experiment_results/{method}/{batch_size}_batch_size/{dataset}/plots"
+    clear_csv_files(duration, rps_str, memory_location, batch_size, method, dataset, base_data_dir=base_dir_data)
     try:
-        base_dir_data = f"/home/sean/diss/virtualize_llm/experiment_results/{method}/{batch_size}_batch_size/{dataset}/data"
-        base_dir_plots = f"/home/sean/diss/virtualize_llm/experiment_results/{method}/{batch_size}_batch_size/{dataset}/plots"
         # Set up output directory for data
         if output_dir is None:
             timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -300,7 +306,7 @@ def main(
             raise click.UsageError(f"Dataset config file not found: {dataset_config_file}")
         datasets, sort_strategy = load_datasets(dataset_config_file)
         
-        _, result_analyzer = run_load_test(
+        aggregated_results, result_analyzer = run_load_test(
             trace_generator=trace_generator,
             model=model,
             subprocesses=subprocesses,
@@ -312,10 +318,21 @@ def main(
         )
 
         print(result_analyzer)
+        # Write input/output lengths to CSV
+        input_output_csv = os.path.join(base_dir_data, f"input_output_lengths_{memory_location}_duration_{duration}_rps_{rps_str}.csv")
+        with open(input_output_csv, "w", newline="") as csvfile:
+            writer = csv.writer(csvfile)
+            writer.writerow(["Request Timestamp", "Input Length", "Output Length"])
+            for name, timestamp, resp in aggregated_results:
+                # Use timestamp as Request ID, or change as needed
+                input_length = resp.get("input_length", 0)
+                output_length = resp.get("output_length", 0)
+                writer.writerow([timestamp, input_length, output_length])
+        logger.info(f"Input/output lengths CSV saved to: {input_output_csv}")
 
         # Save raw results (always)
         results_file = os.path.join(output_dir, "results.json")
-        results_file2 = os.path.join(output_dir2, f"results_{memory_location}.json")
+        results_file2 = os.path.join(output_dir2, f"results_{memory_location}_duration_{duration}_rps_{rps_str}.json")
         result_analyzer.export_json(
             results_file, include_raw=include_raw_results, method=method, batch_size=batch_size, dataset=dataset, duration=duration, rps=rps, memory_location=memory_location
         )
@@ -405,10 +422,47 @@ def main(
     plots_dir = f"/home/sean/diss/virtualize_llm/experiment_results/{method}/{batch_size}_batch_size/{dataset}/plots"
     os.makedirs(plots_dir, exist_ok=True)
 
-    arrival_plot = os.path.join(plots_dir, f"arrival_hist_{memory_location}.png")
+    arrival_plot = os.path.join(plots_dir, f"arrival_hist_{memory_location}_duration_{duration}_rps_{rps_str}.png")
     if hasattr(trace_generator, "timestamps"):
         plot_arrival_distribution(trace_generator.timestamps, arrival_plot, rps, dataset)
         print(f"Request arrival distribution plot saved to: {arrival_plot}")
+    
+    input_output_csv = base_dir_data + f"/input_output_lengths_{memory_location}_duration_{duration}_rps_{rps_str}.csv"
+    df = pd.read_csv(input_output_csv)
+    # Input Length Histogram
+    plt.figure(figsize=(8, 4))
+    min_val = 0
+    max_val = int(df["Input Length"].max())
+    bins = np.arange(min_val, max_val + 25, 25)
+    plt.hist(df["Input Length"], bins=bins, color="#348ABD", edgecolor="black")
+    plt.xlabel("Input Prompt Length (tokens)")
+    plt.xticks(np.arange(0, max_val + 101, 100))
+    plt.xlim(left=0)
+    plt.ylabel("Frequency")
+    plt.title(f"Distribution of Input Prompt Lengths - Dataset: {dataset}")
+    plt.tight_layout()
+    input_hist_path = os.path.join(plots_dir, f"input_length_hist_{memory_location}_duration_{duration}_rps_{rps_str}.png")
+    plt.savefig(input_hist_path, dpi=150)
+    plt.close()
+    logger.info(f"Input prompt length histogram saved to: {input_hist_path}")
+
+    plt.figure(figsize=(8, 4))
+    # Set bin edges for width 25 bins, starting at 0
+    min_val = 0
+    max_val = int(df["Output Length"].max())
+    bins = np.arange(min_val, max_val + 25, 25)
+    plt.hist(df["Output Length"], bins=bins, color="#E24A33", edgecolor="black")
+    plt.xlabel("Output Length (tokens)")
+    plt.ylabel("Frequency")
+    plt.title(f"Distribution of Output Lengths - Dataset: {dataset}")
+    plt.tight_layout()
+    output_hist_path = os.path.join(plots_dir, f"output_length_hist_{memory_location}_duration_{duration}_rps_{rps_str}.png")
+    # Set x-axis ticks to increments of 25
+    plt.xticks(np.arange(0, max_val + 101, 100))
+    plt.xlim(left=0)
+    plt.savefig(output_hist_path, dpi=150)
+    plt.close()
+    logger.info(f"Output length histogram saved to: {output_hist_path}")
 
 
 if __name__ == "__main__":
