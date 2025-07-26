@@ -62,6 +62,12 @@ class ResultAnalyzer:
         latency = ts2 - ts1
         ttft = latency[0]
         tpot = latency[1:].tolist()
+        
+        # Debugging, log the first requests time records and latencies for debugging
+        if not hasattr(self, 'first_request_logged'):
+            logger.info(f"First request time_records: {time_records}")
+            logger.info(f"First request latencies: {latency}")
+            self.first_request_logged = True
         return ttft, tpot
 
     def summarize(
@@ -140,9 +146,8 @@ class ResultAnalyzer:
             raise ValueError("No results to export.")
 
         # --- Add write statistics ---
-        rps_str = str(int(float(rps))) if rps is not None else "None"
         base_dir = f"/home/sean/diss/virtualize_llm/experiment_results/{method}/{batch_size}_batch_size/{dataset}/data"
-        write_csv = f"{base_dir}/write_kv_{memory_location}_duration_{duration}_rps_{rps_str}.csv"
+        write_csv = f"{base_dir}/write_kv_{memory_location}_duration_{duration}_rps_{rps}.csv"
 
         # Read Latency (us) and Average size of write per layer (bytes)
         latencies_us = []

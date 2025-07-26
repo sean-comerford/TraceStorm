@@ -32,56 +32,61 @@ def read_config(config_path="/home/sean/diss/virtualize_llm/config.txt"):
             if not line or line.startswith("//") or "=" not in line:
                 continue
             k, v = line.split("=", 1)
-            config[k.strip()] = v.strip()
+            k = k.strip()
+            v = v.strip()
+            if k == "RPS":
+                try:
+                    v_float = float(v)
+                    if v_float.is_integer():
+                        config[k] = int(v_float)
+                    else:
+                        config[k] = v_float
+                except ValueError:
+                    config[k] = v
+            else:
+                config[k] = v
     return config
 # --- end config.txt reading ---
 
 def clear_csv_files(duration, rps, memory_location, batch_size, method, dataset, base_data_dir):
-    with open(f"/home/sean/diss/virtualize_llm/experiment_results/{method}/" + f"{batch_size}_batch_size/{dataset}/data/token_latency_{memory_location}_duration_{duration}_rps_{rps}.csv", 'w', newline='') as csv_file:
-        writer = csv.writer(csv_file)
-        writer.writerow(["Request_ID", "Token_Index", "Latency (s)"])
-    
-    # Clear request metrics CSV file
-    with open(f"/home/sean/diss/virtualize_llm/experiment_results/{method}/" + f"{batch_size}_batch_size/{dataset}/data/request_metrics_{memory_location}_duration_{duration}_rps_{rps}.csv", 'w', newline='') as csv_file:
-        writer = csv.writer(csv_file)
-        writer.writerow(["Request_ID", "Throughput (tokens/s)", "Average_Latency (s)", "First_Token_Latency (s)", "Max_Token_Latency (s)"])
-
-    # Clear background sync access CSV file
-    with open(f"/home/sean/diss/virtualize_llm/experiment_results/{method}/" + f"{batch_size}_batch_size/{dataset}/data/background_synchronisation_{memory_location}_duration_{duration}_rps_{rps}.csv", 'w', newline='') as csv_file:
-        writer = csv.writer(csv_file)
-        writer.writerow(["Operation", "Latency (us)", "Num Tokens", "Num Layers", "Request ID"])
-
-    # with open(f"/home/sean/diss/virtualize_llm/experiment_results/peer_access/mem_free_{memory_location}_input_{input_len}_output_{output_len}.csv", 'w', newline='') as csv_file:
-    #     writer = csv.writer(csv_file)
-    #     writer.writerow(["Operation", "Latency (us)", "Num Tokens", "Num Layers"])
-
-    with open(f"/home/sean/diss/virtualize_llm/experiment_results/{method}/" + f"{batch_size}_batch_size/{dataset}/data/write_kv_{memory_location}_duration_{duration}_rps_{rps}.csv", 'w', newline='') as csv_file:
-        writer = csv.writer(csv_file)
-        writer.writerow(["Operation", "Tokens Written", "Layer ID", "Latency (us)", "Average size of write per layer (bytes)"])
-
-    # with open(f"/home/sean/diss/virtualize_llm/experiment_results/{method}/" + f"{batch_size}_batch_size/{dataset}/data/read_kv_{memory_location}_duration_{duration}_rps_{rps}.csv", 'w', newline='') as csv_file:
-    #     writer = csv.writer(csv_file)
-    #     writer.writerow(["Operation", "Layer ID", "Latency (us)", "Average size of read per layer (bytes)"])
-
-    with open(f"/home/sean/diss/virtualize_llm/experiment_results/{method}/" + f"{batch_size}_batch_size/{dataset}/data/write_kernel_{memory_location}_duration_{duration}_rps_{rps}.csv", 'w', newline='') as csv_file:
-        writer = csv.writer(csv_file)
-        writer.writerow(["Operation", "Tokens Written", "Layer ID", "Latency (us)"])
-
-    with open(f"/home/sean/diss/virtualize_llm/experiment_results/{method}/" + f"{batch_size}_batch_size/{dataset}/data/free_chunks_{memory_location}_duration_{duration}_rps_{rps}.csv", 'w', newline='') as csv_file:
-        writer = csv.writer(csv_file)
-        writer.writerow(["Request ID", "Number of Free Chunks"])
-    
-    with open(f"/home/sean/diss/virtualize_llm/experiment_results/{method}/" + f"{batch_size}_batch_size/{dataset}/data/prepare_access_{memory_location}_duration_{duration}_rps_{rps}.csv", 'w', newline='') as csv_file:
-        writer = csv.writer(csv_file)
-        writer.writerow(["Operation", "Latency (us)", "Num Tokens", "Layer ID"])
-    
-    with open(f"/home/sean/diss/virtualize_llm/experiment_results/{method}/" + f"{batch_size}_batch_size/{dataset}/data/non_contig_writes_{memory_location}_duration_{duration}_rps_{rps}.csv", 'w', newline='') as csv_file:
-        writer = csv.writer(csv_file)
-        writer.writerow(["Request ID", "Num non-contig writes", "Average time for converting to contig line (us)"])
-    
-    with open(base_data_dir + f"/input_output_lengths_{memory_location}_duration_{duration}_rps_{rps}.csv", 'w', newline='') as csvfile:
-        writer = csv.writer(csvfile)
-        writer.writerow(["Request Timestamp", "Input Length", "Output Length"])
+    csv_files = [
+        (
+            f"/home/sean/diss/virtualize_llm/experiment_results/{method}/"
+            f"{batch_size}_batch_size/{dataset}/data/token_latency_{memory_location}_duration_{duration}_rps_{rps}.csv",
+            ["Request_ID", "Token_Index", "Latency (s)"]
+        ),
+        (
+            f"/home/sean/diss/virtualize_llm/experiment_results/{method}/"
+            f"{batch_size}_batch_size/{dataset}/data/write_kv_{memory_location}_duration_{duration}_rps_{rps}.csv",
+            ["Operation", "Tokens Written", "Layer ID", "Latency (us)", "Average size of write per layer (bytes)"]
+        ),
+        (
+            f"/home/sean/diss/virtualize_llm/experiment_results/{method}/"
+            f"{batch_size}_batch_size/{dataset}/data/write_kernel_{memory_location}_duration_{duration}_rps_{rps}.csv",
+            ["Operation", "Tokens Written", "Layer ID", "Latency (us)"]
+        ),
+        (
+            f"/home/sean/diss/virtualize_llm/experiment_results/{method}/"
+            f"{batch_size}_batch_size/{dataset}/data/prepare_access_{memory_location}_duration_{duration}_rps_{rps}.csv",
+            ["Operation", "Latency (us)", "Num Tokens", "Layer ID"]
+        ),
+        (
+            f"/home/sean/diss/virtualize_llm/experiment_results/{method}/"
+            f"{batch_size}_batch_size/{dataset}/data/non_contig_writes_{memory_location}_duration_{duration}_rps_{rps}.csv",
+            ["Request ID", "Num non-contig writes", "Average time for converting to contig line (us)"]
+        ),
+        (
+            base_data_dir + f"/input_output_lengths_{memory_location}_duration_{duration}_rps_{rps}.csv",
+            ["Request Timestamp", "Input Length", "Output Length"]
+        ),
+    ]
+    for file_path, header in csv_files:
+        try:
+            with open(file_path, 'w', newline='') as csv_file:
+                writer = csv.writer(csv_file)
+                writer.writerow(header)
+        except Exception as e:
+            logger.error(f"[TRACESTORM] Error clearing CSV file {file_path}: {e}")
 
 # Valid patterns
 SYNTHETIC_PATTERNS = {"uniform", "poisson", "random"}
@@ -247,6 +252,11 @@ def plot_arrival_distribution(
     default=False,
     help="Include raw results in the output",
 )
+@click.option(
+    "--dataset",
+    default=None,
+    help="Dataset to use (overrides config.txt if provided)",
+)
 def main(
     model,
     rps,
@@ -260,15 +270,16 @@ def main(
     plot,
     output_dir,
     include_raw_results,
+    dataset
 ):
     config = read_config()
     method = config["METHOD"]
     batch_size = config["BATCH_SIZE"]
     memory_location = config["MEMORY_LOCATION"]
     duration = int(config.get("DURATION", 10))  # Default to 10 seconds if not set
-    rps = float(config.get("RPS", 1.0))  # Default to 1.0 if not set
-    dataset = config["DATASET"]
-    rps_str = str(int(rps)) if rps == int(rps) else str(rps)
+    rps = rps if rps is not None else config["RPS"]
+    dataset = dataset if dataset is not None else config["DATASET"]
+
     
     """Run trace-based load testing for OpenAI API endpoints."""
 
@@ -279,7 +290,7 @@ def main(
     }
     base_dir_data = f"/home/sean/diss/virtualize_llm/experiment_results/{method}/{batch_size}_batch_size/{dataset}/data"
     base_dir_plots = f"/home/sean/diss/virtualize_llm/experiment_results/{method}/{batch_size}_batch_size/{dataset}/plots"
-    clear_csv_files(duration, rps_str, memory_location, batch_size, method, dataset, base_data_dir=base_dir_data)
+    clear_csv_files(duration, rps, memory_location, batch_size, method, dataset, base_data_dir=base_dir_data)
     try:
         # Set up output directory for data
         if output_dir is None:
@@ -319,7 +330,7 @@ def main(
 
         print(result_analyzer)
         # Write input/output lengths to CSV
-        input_output_csv = os.path.join(base_dir_data, f"input_output_lengths_{memory_location}_duration_{duration}_rps_{rps_str}.csv")
+        input_output_csv = os.path.join(base_dir_data, f"input_output_lengths_{memory_location}_duration_{duration}_rps_{rps}.csv")
         with open(input_output_csv, "w", newline="") as csvfile:
             writer = csv.writer(csvfile)
             writer.writerow(["Request Timestamp", "Input Length", "Output Length"])
@@ -332,7 +343,7 @@ def main(
 
         # Save raw results (always)
         results_file = os.path.join(output_dir, "results.json")
-        results_file2 = os.path.join(output_dir2, f"results_{memory_location}_duration_{duration}_rps_{rps_str}.json")
+        results_file2 = os.path.join(output_dir2, f"results_{memory_location}_duration_{duration}_rps_{rps}.json")
         result_analyzer.export_json(
             results_file, include_raw=include_raw_results, method=method, batch_size=batch_size, dataset=dataset, duration=duration, rps=rps, memory_location=memory_location
         )
@@ -342,29 +353,29 @@ def main(
         logger.info(f"Raw results saved to: {results_file} and {results_file2}")
         
         # Save tpot and ttft data to csv files
-        result_analyzer.save_tpot_ttft(base_dir_data, memory_location, duration, rps_str)
+        result_analyzer.save_tpot_ttft(base_dir_data, memory_location, duration, rps)
         
 
         # Generate plots
         if plot:
             # Plot cdf of ttft and tpot for local, remote and original
             local_tpot_file = os.path.join(
-                base_dir_data, f"tpot_local_duration_{duration}_rps_{rps_str}.csv"
+                base_dir_data, f"tpot_local_duration_{duration}_rps_{rps}.csv"
             )
             remote_tpot_file = os.path.join(
-                base_dir_data, f"tpot_remote_duration_{duration}_rps_{rps_str}.csv"
+                base_dir_data, f"tpot_remote_duration_{duration}_rps_{rps}.csv"
             )
             original_tpot_file = os.path.join(
-                base_dir_data, f"tpot_original_duration_{duration}_rps_{rps_str}.csv"
+                base_dir_data, f"tpot_original_duration_{duration}_rps_{rps}.csv"
             )
             local_ttft_file = os.path.join(
-                base_dir_data, f"ttft_local_duration_{duration}_rps_{rps_str}.csv"
+                base_dir_data, f"ttft_local_duration_{duration}_rps_{rps}.csv"
             )
             remote_ttft_file = os.path.join(
-                base_dir_data, f"ttft_remote_duration_{duration}_rps_{rps_str}.csv"
+                base_dir_data, f"ttft_remote_duration_{duration}_rps_{rps}.csv"
             )
             original_ttft_file = os.path.join(
-                base_dir_data, f"ttft_original_duration_{duration}_rps_{rps_str}.csv"
+                base_dir_data, f"ttft_original_duration_{duration}_rps_{rps}.csv"
             )
             result_analyzer.plot_cdf_comparison(base_dir_plots, color_map, duration, rps, 
                 local_tpot_file, remote_tpot_file, original_tpot_file,
@@ -381,32 +392,32 @@ def main(
             # Plot cdf of write latency for local and remote
             local_write_csv = os.path.join(
                 base_dir_data,
-                f"write_kv_local_duration_{duration}_rps_{rps_str}.csv"
+                f"write_kv_local_duration_{duration}_rps_{rps}.csv"
             )
             remote_write_csv = os.path.join(
                 base_dir_data,
-                f"write_kv_remote_duration_{duration}_rps_{rps_str}.csv"
+                f"write_kv_remote_duration_{duration}_rps_{rps}.csv"
             )
-            write_cdf_output_name = f"write_kv_latency_cdf_duration_{duration}_rps_{rps_str}.png"
+            write_cdf_output_name = f"write_kv_latency_cdf_duration_{duration}_rps_{rps}.png"
             write_plot_path = os.path.join(base_dir_plots, write_cdf_output_name)
             result_analyzer.plot_write_latency_cdf(local_write_csv, remote_write_csv, write_plot_path, color_map)
             logger.info(f"Write latency CDF plot saved to {write_plot_path}")
             
             # Plot graph of timeline of batch size of write
-            batch_write_timeline_output_name = f"write_kv_batch_size_timeline_duration_{duration}_rps_{rps_str}.png"
+            batch_write_timeline_output_name = f"write_kv_batch_size_timeline_duration_{duration}_rps_{rps}.png"
             batch_write_timeline_plot_path = os.path.join(base_dir_plots, batch_write_timeline_output_name)
             result_analyzer.plot_batch_size_timeline(local_write_csv, remote_write_csv, batch_write_timeline_plot_path, color_map)
             
             # Plot the cdf of prepare_access latency for remote and local
             local_prepare_csv = os.path.join(
                 base_dir_data,
-                f"prepare_access_local_duration_{duration}_rps_{rps_str}.csv"
+                f"prepare_access_local_duration_{duration}_rps_{rps}.csv"
             )
             remote_prepare_csv = os.path.join(
                 base_dir_data,
-                f"prepare_access_remote_duration_{duration}_rps_{rps_str}.csv"
+                f"prepare_access_remote_duration_{duration}_rps_{rps}.csv"
             )
-            prepare_cdf_output_name = f"prepare_access_latency_cdf_duration_{duration}_rps_{rps_str}.png"
+            prepare_cdf_output_name = f"prepare_access_latency_cdf_duration_{duration}_rps_{rps}.png"
             prepare_plot_path = os.path.join(base_dir_plots, prepare_cdf_output_name)
             result_analyzer.plot_prepare_access_cdf(local_prepare_csv, remote_prepare_csv, prepare_plot_path, color_map)
             logger.info(f"Prepare access CDF plot saved to {prepare_plot_path}")
@@ -422,12 +433,12 @@ def main(
     plots_dir = f"/home/sean/diss/virtualize_llm/experiment_results/{method}/{batch_size}_batch_size/{dataset}/plots"
     os.makedirs(plots_dir, exist_ok=True)
 
-    arrival_plot = os.path.join(plots_dir, f"arrival_hist_{memory_location}_duration_{duration}_rps_{rps_str}.png")
+    arrival_plot = os.path.join(plots_dir, f"arrival_hist_{memory_location}_duration_{duration}_rps_{rps}.png")
     if hasattr(trace_generator, "timestamps"):
         plot_arrival_distribution(trace_generator.timestamps, arrival_plot, rps, dataset)
         print(f"Request arrival distribution plot saved to: {arrival_plot}")
     
-    input_output_csv = base_dir_data + f"/input_output_lengths_{memory_location}_duration_{duration}_rps_{rps_str}.csv"
+    input_output_csv = base_dir_data + f"/input_output_lengths_{memory_location}_duration_{duration}_rps_{rps}.csv"
     df = pd.read_csv(input_output_csv)
     # Input Length Histogram
     plt.figure(figsize=(8, 4))
@@ -441,7 +452,7 @@ def main(
     plt.ylabel("Frequency")
     plt.title(f"Distribution of Input Prompt Lengths - Dataset: {dataset}")
     plt.tight_layout()
-    input_hist_path = os.path.join(plots_dir, f"input_length_hist_{memory_location}_duration_{duration}_rps_{rps_str}.png")
+    input_hist_path = os.path.join(plots_dir, f"input_length_hist_{memory_location}_duration_{duration}_rps_{rps}.png")
     plt.savefig(input_hist_path, dpi=150)
     plt.close()
     logger.info(f"Input prompt length histogram saved to: {input_hist_path}")
@@ -456,7 +467,7 @@ def main(
     plt.ylabel("Frequency")
     plt.title(f"Distribution of Output Lengths - Dataset: {dataset}")
     plt.tight_layout()
-    output_hist_path = os.path.join(plots_dir, f"output_length_hist_{memory_location}_duration_{duration}_rps_{rps_str}.png")
+    output_hist_path = os.path.join(plots_dir, f"output_length_hist_{memory_location}_duration_{duration}_rps_{rps}.png")
     # Set x-axis ticks to increments of 25
     plt.xticks(np.arange(0, max_val + 101, 100))
     plt.xlim(left=0)
