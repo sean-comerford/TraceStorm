@@ -45,7 +45,7 @@ def round_robin_shard(
     return shards
 
 
-def get_unique_file_path(file_path: str) -> str:
+def get_unique_file_path(file_path: str, runtime=None) -> str:
     """
     Generates a unique file path by appending an index if the file already exists.
 
@@ -60,8 +60,8 @@ def get_unique_file_path(file_path: str) -> str:
 
     base, extension = os.path.splitext(file_path)
     index = 1
-    new_file_path = f"{base}_{index}{extension}"
+    new_file_path = f"{base}_{index}_runtime_{runtime}{extension}"
     while os.path.exists(new_file_path):
         index += 1
-        new_file_path = f"{base}_{index}{extension}"
+        new_file_path = f"{base}_{index}_runtime_{runtime}{extension}"
     return new_file_path

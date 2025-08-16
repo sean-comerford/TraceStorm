@@ -45,6 +45,8 @@ def run_load_test(
         logger.warning("No requests to process. Trace is empty.")
         return [], ResultAnalyzer()
 
+    # print(f"[DEBUG core.py] ***********************Setting datasets to None to load default fixed length prompts*********************************")
+    # datasets = None
     requests = generate_request(
         model_name=model,
         nums=total_requests,
@@ -84,6 +86,7 @@ def run_load_test(
                 f"Received result from {name} for timestamp {timestamp}: {resp['token_count']} tokens"
             )
             aggregated_results.append((name, timestamp, resp))
+            # print(f"[DEBUG core.py] *********resp is {resp}************")
         except Empty:
             # Timeout occurred, but maybe not all processes are finished.
             logger.warning(

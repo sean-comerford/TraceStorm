@@ -4,6 +4,7 @@ from typing import Any, Dict, List
 from tracestorm.constants import DEFAULT_MESSAGES
 from tracestorm.data_loader import Dataset
 from tracestorm.logger import init_logger
+import tiktoken
 
 logger = init_logger(__name__)
 
@@ -18,7 +19,11 @@ def generate_request(
 ) -> List[Dict[str, Any]]:
     # generate default requests without datasets
     if not datasets:
+        encoding = tiktoken.get_encoding("cl100k_base")
+        tokens = encoding.encode(DEFAULT_MESSAGES)
+        print(f"[DEBUG request_generator.py] DEFAULT_MESSAGES token count: {len(tokens)}")        
         for _ in range(nums):
+            print(f"[DEBUG request_generator.py] Returning reqeusts with messages {messages}")
             return [
                 {
                     "model": model_name,
@@ -73,6 +78,10 @@ def generate_request(
                 "model": model_name,
                 "messages": [{"role": "user", "content": prompt}],
                 "stream": True,
+                "temperature": 0.98,
+                # "presence_penalty": -0.05,
+                # "frequency_penalty": -0.05,
+                "max_completion_tokens" : 5000,
             }
             for _, prompt in dataset_samples
         ]

@@ -56,6 +56,7 @@ def normalize_prompts(row) -> List[str]:
     Convert one row to a list of prompts based on the format.
     """
     prompts = []
+    # print(f"[DEBUG data_loader] Normalizing row: {row}")
     if isinstance(row, list):  # if the row contains a list of prompts
         for item in row:
             if isinstance(item, str):
@@ -69,6 +70,7 @@ def normalize_prompts(row) -> List[str]:
                     ),
                     "",
                 )
+                # print(f"[DEBUG data_loader] Loaded prompt {prompt}")
                 prompts.append(prompt)
             else:  # we cannot handle this type
                 continue

@@ -94,7 +94,8 @@ class TracePlayer:
             prompt = request_data["prompt"]
         else:
             prompt = ""
-
+        #print(f"[DEBUG TracePlayer] Request data is {request_data}")
+        #print(f"[DEBUG TracePlayer] Prompt is {prompt}, input length is {len(prompt)}")
         input_length = len(tokenizer.encode(prompt)) if prompt else 0
         
         try:
@@ -116,6 +117,10 @@ class TracePlayer:
         except Exception as e:
             logger.error(f"[{self.name}] Request failed: {e}", exc_info=True)
             raise RequestError(str(e)) from e
+        
+        # Calculate throughput
+        total_time = time_records[-1] - time_records[0] if len(time_records) > 1 else 0
+        throughput = token_count / total_time if total_time > 0 else 0
 
         return {
             "result": result,
@@ -123,6 +128,7 @@ class TracePlayer:
             "input_length": input_length,
             "output_length": len(tokenizer.encode(result)),
             "time_records": time_records,
+            "throughput" : throughput,
             "error": None,
         }
 

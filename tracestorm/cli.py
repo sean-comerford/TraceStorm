@@ -48,7 +48,7 @@ def read_config(config_path="/home/sean/diss/virtualize_llm/config.txt"):
     return config
 # --- end config.txt reading ---
 
-def clear_csv_files(duration, rps, memory_location, batch_size, method, dataset, base_data_dir):
+def clear_csv_files(duration, rps, memory_location, batch_size, method, dataset, base_data_dir, runtime):
     csv_files = [
         (
             f"/home/sean/diss/virtualize_llm/experiment_results/{method}/"
@@ -79,6 +79,13 @@ def clear_csv_files(duration, rps, memory_location, batch_size, method, dataset,
             base_data_dir + f"/input_output_lengths_{memory_location}_duration_{duration}_rps_{rps}.csv",
             ["Request Timestamp", "Input Length", "Output Length"]
         ),
+        (
+            f"/home/sean/diss/virtualize_llm/experiment_results/{method}/"
+            f"{batch_size}_batch_size/{dataset}/data/read_kv_{memory_location}_duration_{duration}_rps_{rps}.csv",
+            ["Operation","Elapsed Time (microseconds)"]
+        ),
+        
+        
     ]
     for file_path, header in csv_files:
         try:
@@ -87,6 +94,22 @@ def clear_csv_files(duration, rps, memory_location, batch_size, method, dataset,
                 writer.writerow(header)
         except Exception as e:
             logger.error(f"[TRACESTORM] Error clearing CSV file {file_path}: {e}")
+    
+    try:
+        # Clear the redacted requests log file
+        log_path = f"/home/sean/diss/virtualize_llm/experiment_results/requests_kept_waiting_{runtime}.txt"
+        with open(log_path, "w") as f:
+            f.write("")  # Clear the file content
+    except Exception as e:
+        logger.warning(f"Failed to clear requests_kept_wating log: {e}")
+    
+    try:
+        # Clear the redacted requests log file
+        log_path = f"/home/sean/diss/virtualize_llm/experiment_results/retracted_reqs_log_{runtime}.txt"
+        with open(log_path, "w") as f:
+            f.write("")  # Clear the file content
+    except Exception as e:
+        logger.warning(f"Failed to clear retracted_reqs log: {e}")
 
 # Valid patterns
 SYNTHETIC_PATTERNS = {"uniform", "poisson", "random"}
@@ -160,7 +183,9 @@ def plot_arrival_distribution(
     timestamps_ms: list[int],
     save_path: str,
     rps,
-    dataset
+    dataset,
+    memory_location=None,
+    duration=None,
 ) -> None:
     """
     Parameters
@@ -180,14 +205,38 @@ def plot_arrival_distribution(
 
     plt.figure(figsize=(8, 4))
     plt.bar(range(max_s), hist, width=1.0, edgecolor="none")
-    plt.xlabel("Seconds since window start")
-    plt.ylabel("Requests")
-    plt.title(f"Request-arrival distribution (random window) - RPS - {rps} - Dataset - {dataset}")
+    plt.xlabel("Time (s)", fontsize=16)
+    plt.ylabel("# Requests", fontsize=16)
+    plt.xlim(left=0)
+    plt.xticks(fontsize=14)
+    plt.yticks(fontsize=14)
+    plt.ylim(bottom=0)
+    # plt.title(f"Request Arrival distribution")
     plt.tight_layout()
     plt.savefig(save_path, dpi=150)
     plt.close()
 
     logger.info("Arrival-distribution plot saved to: %s", save_path)
+    # --- Save histogram data to CSV ---
+    # Use provided or fallback to empty string for filename formatting
+    memory_location = memory_location if memory_location is not None else ""
+    duration = duration if duration is not None else ""
+
+    csv_dir = f"/home/sean/diss/virtualize_llm/experiment_results/peer_access_final_results/{dataset}"
+    os.makedirs(csv_dir, exist_ok=True)
+    csv_path = os.path.join(
+        csv_dir,
+        f"arrival_distribution_{memory_location}_duration_{duration}_rps_{rps}.csv"
+    )
+    try:
+        with open(csv_path, "w", newline="") as csvfile:
+            writer = csv.writer(csvfile)
+            writer.writerow(["Second", "NumRequests"])
+            for sec, count in enumerate(hist):
+                writer.writerow([sec, count])
+        logger.info(f"Arrival distribution data saved to: {csv_path}")
+    except Exception as e:
+        logger.error(f"Failed to save arrival distribution CSV: {e}")
 
 @click.command()
 @click.option("--model", required=True, help="Model name")
@@ -257,6 +306,12 @@ def plot_arrival_distribution(
     default=None,
     help="Dataset to use (overrides config.txt if provided)",
 )
+@click.option(
+    "--runtime",
+    default=None,
+    type=int,
+    help="Runtime ID for the server",
+)
 def main(
     model,
     rps,
@@ -270,7 +325,8 @@ def main(
     plot,
     output_dir,
     include_raw_results,
-    dataset
+    dataset,
+    runtime
 ):
     config = read_config()
     method = config["METHOD"]
@@ -290,7 +346,7 @@ def main(
     }
     base_dir_data = f"/home/sean/diss/virtualize_llm/experiment_results/{method}/{batch_size}_batch_size/{dataset}/data"
     base_dir_plots = f"/home/sean/diss/virtualize_llm/experiment_results/{method}/{batch_size}_batch_size/{dataset}/plots"
-    clear_csv_files(duration, rps, memory_location, batch_size, method, dataset, base_data_dir=base_dir_data)
+    clear_csv_files(duration, rps, memory_location, batch_size, method, dataset, base_data_dir=base_dir_data, runtime=runtime)
     try:
         # Set up output directory for data
         if output_dir is None:
@@ -345,16 +401,20 @@ def main(
         results_file = os.path.join(output_dir, "results.json")
         results_file2 = os.path.join(output_dir2, f"results_{memory_location}_duration_{duration}_rps_{rps}.json")
         result_analyzer.export_json(
-            results_file, include_raw=include_raw_results, method=method, batch_size=batch_size, dataset=dataset, duration=duration, rps=rps, memory_location=memory_location
+            results_file, include_raw=include_raw_results, method=method, batch_size=batch_size, dataset=dataset, duration=duration, rps=rps, memory_location=memory_location, runtime=runtime
         )
         result_analyzer.export_json(
-            results_file2, include_raw=include_raw_results, method=method, batch_size=batch_size, dataset=dataset, duration=duration, rps=rps, memory_location=memory_location
+            results_file2, include_raw=include_raw_results, method=method, batch_size=batch_size, dataset=dataset, duration=duration, rps=rps, memory_location=memory_location, runtime=runtime
         )
         logger.info(f"Raw results saved to: {results_file} and {results_file2}")
         
         # Save tpot and ttft data to csv files
-        result_analyzer.save_tpot_ttft(base_dir_data, memory_location, duration, rps)
+        result_analyzer.save_tpot_ttft(base_dir_data, memory_location, duration, rps, runtime)
         
+        # Save throughput data
+        throughput_file = os.path.join(base_dir_data, f"throughput_{memory_location}_duration_{duration}_rps_{rps}_runtime_{runtime}.csv")
+        result_analyzer.save_throughput_csv(throughput_file)
+        logger.info(f"Throughput data saved to: {throughput_file}")
 
         # Generate plots
         if plot:
@@ -435,7 +495,7 @@ def main(
 
     arrival_plot = os.path.join(plots_dir, f"arrival_hist_{memory_location}_duration_{duration}_rps_{rps}.png")
     if hasattr(trace_generator, "timestamps"):
-        plot_arrival_distribution(trace_generator.timestamps, arrival_plot, rps, dataset)
+        plot_arrival_distribution(trace_generator.timestamps, arrival_plot, rps, dataset, memory_location=memory_location, duration=duration)
         print(f"Request arrival distribution plot saved to: {arrival_plot}")
     
     input_output_csv = base_dir_data + f"/input_output_lengths_{memory_location}_duration_{duration}_rps_{rps}.csv"

@@ -22,6 +22,7 @@ class ResultAnalyzer:
         self.raw_results: List[Dict[str, Any]] = []
         self.ttft: List[float] = []  # time to first token
         self.tpot: List[List[float]] = []  # time per output token
+        self.throughputs: List[float] = []  # throughput for each request
 
     def add_result(
         self, name: str, timestamp: int, resp: Dict[str, Any]
@@ -30,6 +31,9 @@ class ResultAnalyzer:
             {"name": name, "timestamp": timestamp, "response": resp}
         )
         ttft, tpot = self.process_time_records(resp.get("time_records", []))
+        throughput = resp.get("throughput")
+        if throughput is not None:
+            self.throughputs.append(throughput)
         if not ttft or not tpot:
             logger.error(
                 f"Error processing time_records for {name} at timestamp {timestamp}"
@@ -89,6 +93,8 @@ class ResultAnalyzer:
         # Flatten tpot list of lists to a single Series
         tpot_flat = [item for sublist in self.tpot for item in sublist]
         tpot_series = pd.Series(tpot_flat)
+        
+        throughput_series = pd.Series(self.throughputs)
 
         # Compute statistics for ttft
         ttft_stats = ttft_series.describe(percentiles=percentiles).to_dict()
@@ -96,9 +102,12 @@ class ResultAnalyzer:
         # Compute statistics for tpot
         tpot_stats = tpot_series.describe(percentiles=percentiles).to_dict()
         logger.debug(f"tpot_stats: {tpot_stats}")
+        
+        throughput_stats = throughput_series.describe(percentiles=percentiles).to_dict()
+        logger.debug(f"throughput_stats: {throughput_stats}")
 
         # Organize the summary
-        summary = {"ttft": ttft_stats, "tpot": tpot_stats}
+        summary = {"ttft": ttft_stats, "tpot": tpot_stats, "throughput": throughput_stats}
 
         return summary
 
@@ -115,6 +124,7 @@ class ResultAnalyzer:
 
         ttft_stats = summary.get("ttft", {})
         tpot_stats = summary.get("tpot", {})
+        throughput_stats = summary.get("throughput", {})
 
         # Helper function to format statistics
         def format_stats(title: str, stats: Dict[str, float]) -> str:
@@ -125,10 +135,11 @@ class ResultAnalyzer:
 
         ttft_str = format_stats("ttft", ttft_stats)
         tpot_str = format_stats("tpot", tpot_stats)
+        throughput_str = format_stats("throughput", throughput_stats)
 
-        return f"{ttft_str}\n\n{tpot_str}"
+        return f"{ttft_str}\n\n{tpot_str}\n\n{throughput_str}"  
 
-    def export_json(self, file_path: str, include_raw: bool = False, method=None, batch_size=None, dataset=None, duration=None, rps=None, memory_location=None) -> None:
+    def export_json(self, file_path: str, include_raw: bool = False, method=None, batch_size=None, dataset=None, duration=None, rps=None, memory_location=None, runtime=None) -> None:
         """
         Exports the summary statistics and optionally the raw results to a JSON file.
 
@@ -192,7 +203,7 @@ class ResultAnalyzer:
         if include_raw:
             data_to_export["raw_results"] = self.raw_results
 
-        file_path = get_unique_file_path(file_path)
+        file_path = get_unique_file_path(file_path, runtime=runtime)
         try:
             with open(file_path, "w") as f:
                 json.dump(data_to_export, f, indent=4)
@@ -273,7 +284,7 @@ class ResultAnalyzer:
             
 
     # Save self.tpot and self.ttft to CSV files (convert seconds to milliseconds)
-    def save_tpot_ttft(self, base_dir_data, memory_location, duration, rps):
+    def save_tpot_ttft(self, base_dir_data, memory_location, duration, rps, runtime):
         """
         Save the tpot and ttft data to CSV files for further analysis.
         Times are converted from seconds to milliseconds.
@@ -283,8 +294,8 @@ class ResultAnalyzer:
             return
 
         # Prepare file paths
-        tpot_file = os.path.join(base_dir_data, f"tpot_{memory_location}_duration_{duration}_rps_{rps}.csv")
-        ttft_file = os.path.join(base_dir_data, f"ttft_{memory_location}_duration_{duration}_rps_{rps}.csv")
+        tpot_file = os.path.join(base_dir_data, f"tpot_{memory_location}_duration_{duration}_rps_{rps}_runtime_{runtime}.csv")
+        ttft_file = os.path.join(base_dir_data, f"ttft_{memory_location}_duration_{duration}_rps_{rps}_runtime_{runtime}.csv")
 
         # Save tpot data (flatten and convert to ms)
         try:
@@ -472,3 +483,27 @@ class ResultAnalyzer:
         plt.tight_layout()
         plt.savefig(output_file)
         plt.close()
+        
+    def save_throughput_csv(self, file_path: str) -> None:
+        """
+        Saves the throughput for each request to a CSV file.
+        Args:
+            file_path (str): The path to the CSV file.
+        """
+        if not self.raw_results:
+            logger.warning("No raw results to save throughput data from.")
+            return
+
+        try:
+            with open(file_path, "w", newline="") as f:
+                writer = csv.writer(f)
+                writer.writerow(["Timestamp", "Throughput"])
+                for result in self.raw_results:
+                    timestamp = result.get("timestamp")
+                    throughput = result.get("response", {}).get("throughput")
+                    if timestamp is not None and throughput is not None:
+                        writer.writerow([timestamp, throughput])
+            logger.info(f"Throughput data saved to {file_path}")
+        except IOError as e:
+            logger.error(f"Failed to save throughput data to {file_path}: {e}")
+            raise
